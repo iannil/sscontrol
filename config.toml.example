@@ -1,0 +1,48 @@
+# sscontrol 配置文件示例
+# 复制此文件为 config.toml 并根据需要修改
+
+[server]
+# WebSocket 服务器地址
+url = "ws://localhost:8080"
+
+# 设备 ID (留空将自动生成)
+# device_id = ""
+
+[capture]
+# 目标帧率
+fps = 30
+
+# 屏幕索引 (0 = 主显示器, 1 = 第二个显示器, ...)
+# screen_index = 0
+
+# 捕获宽度 (留空使用原始分辨率)
+# width = 1920
+
+# 捕获高度 (留空使用原始分辨率)
+# height = 1080
+
+[logging]
+# 日志级别: trace, debug, info, warn, error
+level = "info"
+
+# 日志文件路径 (留空仅输出到控制台)
+# file = "/var/log/sscontrol.log"
+
+[security]
+# ===== 安全配置 =====
+# 注意: 敏感信息建议通过环境变量设置，而非写入配置文件
+
+# API Key (推荐通过环境变量设置: SSCONTROL_API_KEY)
+# api_key = "your-secret-api-key"
+
+# TLS 证书路径 (推荐通过环境变量设置: SSCONTROL_TLS_CERT)
+# tls_cert = "/path/to/cert.pem"
+
+# TLS 私钥路径 (推荐通过环境变量设置: SSCONTROL_TLS_KEY)
+# tls_key = "/path/to/key.pem"
+
+# 是否强制使用 TLS (生产环境建议设为 true)
+require_tls = false
+
+# Token 最大有效期（秒），默认 300 (5 分钟)
+token_ttl = 300

@@ -1,0 +1,127 @@
+[package]
+name = "sscontrol"
+version = "0.1.0"
+edition = "2021"
+authors = ["sscontrol"]
+description = "A headless remote desktop application built in Rust"
+
+[features]
+default = []
+h264 = ["ffmpeg-next"]  # H.264 编码器 (需要 FFmpeg)
+webrtc = ["dep:webrtc", "dep:bytes"]  # WebRTC 支持 (使用 webrtc-rs)
+security = ["dep:tokio-rustls", "dep:rustls", "dep:rustls-pemfile", "dep:rustls-native-certs"]  # 安全特性 (TLS 和认证)
+service = []  # 系统服务特性 (Windows Service / macOS LaunchAgent / Linux systemd)
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+
+# WebSocket
+tungstenite = "0.21"
+url = "2.5"
+
+# Video encoding (optional, use --features h264 to enable)
+ffmpeg-next = { version = "8.0", optional = true }
+
+# WebRTC (optional, use --features webrtc to enable)
+webrtc = { version = "0.12", optional = true }
+bytes = { version = "1.5", optional = true }
+
+# Security (optional, use --features security to enable)
+tokio-rustls = { version = "0.25", optional = true }
+rustls = { version = "0.23", optional = true }
+rustls-pemfile = { version = "2.0", optional = true }
+rustls-native-certs = { version = "0.7", optional = true }
+
+# Authentication (always available for HMAC token generation)
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.8"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# UUID
+uuid = { version = "1.6", features = ["v4"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# macOS specific dependencies
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+objc = "0.2"
+core-graphics = "0.23"
+core-foundation = "0.9"
+
+# Windows specific dependencies
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.52", features = [
+    "Win32_Graphics_Gdi",
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Services",
+]}
+windows-service = "0.7"
+widestring = "1.0"
+
+[dev-dependencies]
+tokio = { version = "1.35", features = ["full"] }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "sscontrol"
+path = "src/main.rs"
+
+[[example]]
+name = "test_server"
+path = "examples/test_server.rs"
+
+[[example]]
+name = "test_capture"
+path = "examples/test_capture.rs"
+
+[[example]]
+name = "test_encoder"
+path = "examples/test_encoder.rs"
+
+[[example]]
+name = "benchmark"
+path = "examples/benchmark.rs"
+
+[[example]]
+name = "webrtc_example"
+path = "examples/webrtc_example.rs"
+required-features = ["webrtc"]
+
+[[example]]
+name = "signaling_server"
+path = "examples/signaling_server.rs"
+
+[[example]]
+name = "webrtc_client"
+path = "examples/webrtc_client.rs"
+required-features = ["webrtc"]
+
+[[example]]
+name = "secure_server"
+path = "examples/secure_server.rs"
+required-features = ["security"]
