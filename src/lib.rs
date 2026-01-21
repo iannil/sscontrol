@@ -8,4 +8,5 @@ pub mod encoder;
 pub mod input;
 pub mod network;
 pub mod security;
+pub mod service;
 pub mod webrtc;

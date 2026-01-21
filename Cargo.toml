@@ -11,6 +11,7 @@ h264 = ["ffmpeg-next"]  # H.264 编码器 (需要 FFmpeg)
 webrtc = ["dep:webrtc", "dep:bytes"]  # WebRTC 支持 (使用 webrtc-rs)
 security = ["dep:tokio-rustls", "dep:rustls", "dep:rustls-pemfile", "dep:rustls-native-certs"]  # 安全特性 (TLS 和认证)
 service = []  # 系统服务特性 (Windows Service / macOS LaunchAgent / Linux systemd)
+ui = []  # GUI 特性 (用于 Tauri 集成)
 
 [dependencies]
 # Async runtime
