@@ -2,6 +2,8 @@
 
 > A headless remote desktop application built with Rust, featuring WebRTC P2P communication, cross-platform support, and system service integration.
 
+中文文档: [README_ZH.md](README_ZH.md)
+
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)]()
@@ -20,7 +22,7 @@ sscontrol is a lightweight, headless remote desktop solution that enables screen
 ## Project Status
 
 | Phase | Status | Description |
-|-------|--------|-------------|
+| ------- | -------- | ------------- |
 | Phase 0 | ✅ Complete | Planning & Design |
 | Phase 1 | ✅ Complete | MVP Screen Capture |
 | Phase 2 | ✅ Complete | Mouse Control |
@@ -31,6 +33,7 @@ sscontrol is a lightweight, headless remote desktop solution that enables screen
 ## Features
 
 ### Core Features
+
 - 📺 Screen Capture - High-performance screen capture using platform APIs
   - macOS: CGDisplay API
   - Windows: GDI BitBlt
@@ -41,6 +44,7 @@ sscontrol is a lightweight, headless remote desktop solution that enables screen
 - 📦 Service Mode - Run as a system service on all platforms
 
 ### Technical Highlights
+
 - Normalized coordinates (0.0-1.0) for DPI-independent input
 - Automatic reconnection on network failure
 - Configurable frame rate and resolution
@@ -76,16 +80,19 @@ sudo cp target/release/sscontrol /usr/local/bin/
 #### Using Installation Scripts
 
 macOS:
+
 ```bash
 ./scripts/install_macos.sh
 ```
 
 Linux:
+
 ```bash
 sudo ./scripts/install_linux.sh
 ```
 
 Windows (PowerShell as Administrator):
+
 ```powershell
 .\scripts\install_windows.ps1
 ```
@@ -173,14 +180,14 @@ token_ttl = 300
 ### Environment Variables
 
 | Variable | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `SSCONTROL_API_KEY` | API key for authentication |
 | `SSCONTROL_TLS_CERT` | Path to TLS certificate file |
 | `SSCONTROL_TLS_KEY` | Path to TLS private key file |
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Host Agent                               │
 ├─────────────────────────────────────────────────────────────────┤
@@ -246,7 +253,7 @@ cargo build --release --features "h264,webrtc,security,service"
 The project includes several example programs:
 
 | Example | Description | Command |
-|---------|-------------|---------|
+| --------- | ------------- | --------- |
 | `test_server` | WebSocket test server | `cargo run --example test_server` |
 | `test_capture` | Screen capture test | `cargo run --example test_capture` |
 | `test_encoder` | Encoder test | `cargo run --example test_encoder` |
@@ -273,7 +280,7 @@ cargo test capture::tests
 Tested on macOS, 4K resolution (3840×2160):
 
 | Metric | Result |
-|--------|--------|
+| -------- | -------- |
 | Average capture time | ~51 ms |
 | Average encode time | ~1.6 ms |
 | Maximum frame rate | ~19 FPS (unoptimized) |
@@ -284,7 +291,7 @@ Tested on macOS, 4K resolution (3840×2160):
 ## Tech Stack
 
 | Component | Technology |
-|-----------|------------|
+| ----------- | ------------ |
 | Language | Rust 2021 |
 | Runtime | Tokio (async) |
 | Network | tokio-tungstenite (WebSocket), webrtc-rs 0.12 |
@@ -296,7 +303,7 @@ Tested on macOS, 4K resolution (3840×2160):
 ## Documentation
 
 | Document | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | [Architecture](./docs/architecture/overview.md) | System architecture and module design |
 | [Setup Guide](./docs/implementation/setup.md) | Development environment setup |
 | [Roadmap](./docs/roadmap.md) | Development roadmap |
@@ -306,7 +313,7 @@ Tested on macOS, 4K resolution (3840×2160):
 ## Known Issues
 
 | ID | Issue | Priority |
-|----|-------|----------|
+| ---- | ------- | ---------- |
 | T001 | H.264 encoder not enabled by default | P1 |
 | T002 | macOS scroll wheel support limited | P3 |
 | T003 | Windows capture uses GDI (not Desktop Duplication API) | P3 |
@@ -343,7 +350,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Rust](https://www.rust-lang.org/)
 - WebRTC implementation by [webrtc-rs](https://github.com/webrtc-rs/webrtc)
 - Async runtime by [Tokio](https://tokio.rs/)
-
----
-
-中文文档: [README_ZH.md](README_ZH.md)
