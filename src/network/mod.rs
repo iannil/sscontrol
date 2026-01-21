@@ -7,14 +7,16 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 
 // 安全相关导入
 #[cfg(feature = "security")]
 use crate::security::{ApiKeyAuth, TokenManager};
 
-/// 输入事件处理器回调
-pub type InputEventHandler = Arc<Mutex<Option<Box<dyn Fn(crate::input::InputEvent) + Send + 'static>>>>;
+/// 输入事件发送器 (channel)
+pub type InputEventSender = mpsc::UnboundedSender<crate::input::InputEvent>;
+/// 输入事件接收器 (channel)
+pub type InputEventReceiver = mpsc::UnboundedReceiver<crate::input::InputEvent>;
 
 /// WebSocket 发送器类型别名
 type WsSender = futures_util::stream::SplitSink<
@@ -109,7 +111,8 @@ pub struct VideoClient {
     state: Arc<Mutex<ConnectionState>>,
     reconnect_count: Arc<Mutex<usize>>,
     should_stop: Arc<Mutex<bool>>,
-    input_handler: InputEventHandler,
+    input_sender: InputEventSender,
+    input_receiver: Arc<Mutex<Option<InputEventReceiver>>>,
     /// Token 管理器 (用于认证)
     #[cfg(feature = "security")]
     token_manager: Option<Arc<TokenManager>>,
@@ -130,6 +133,8 @@ impl VideoClient {
             None
         };
 
+        let (input_sender, input_receiver) = mpsc::unbounded_channel();
+
         VideoClient {
             url,
             device_id,
@@ -139,18 +144,20 @@ impl VideoClient {
             state: Arc::new(Mutex::new(ConnectionState::Disconnected)),
             reconnect_count: Arc::new(Mutex::new(0)),
             should_stop: Arc::new(Mutex::new(false)),
-            input_handler: Arc::new(Mutex::new(None)),
+            input_sender,
+            input_receiver: Arc::new(Mutex::new(Some(input_receiver))),
             #[cfg(feature = "security")]
             token_manager,
         }
     }
 
-    /// 设置输入事件处理器
-    pub fn set_input_handler<F>(&self, handler: F)
-    where
-        F: Fn(crate::input::InputEvent) + Send + 'static,
-    {
-        *self.input_handler.blocking_lock() = Some(Box::new(handler));
+    /// 获取输入事件接收器
+    pub async fn input_receiver(&self) -> InputEventReceiver {
+        self.input_receiver
+            .lock()
+            .await
+            .take()
+            .expect("input_receiver already taken")
     }
 
     /// 发送认证消息
@@ -191,10 +198,8 @@ impl VideoClient {
     fn handle_message(&self, text: String) {
         // 尝试解析为输入事件
         if let Ok(event) = serde_json::from_str::<crate::input::InputEvent>(&text) {
-            let handler = self.input_handler.blocking_lock();
-            if let Some(h) = handler.as_ref() {
-                h(event);
-            }
+            // 通过 channel 发送事件
+            let _ = self.input_sender.send(event);
         } else {
             tracing::debug!("收到非输入事件消息: {}", text);
         }
@@ -212,7 +217,7 @@ impl VideoClient {
             let sender = self.sender.clone();
             let config = self.config.clone();
             let reconnect_count = self.reconnect_count.clone();
-            let input_handler = self.input_handler.clone();
+            let input_sender = self.input_sender.clone();
 
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_millis(config.reconnect_interval_ms));
@@ -257,17 +262,14 @@ impl VideoClient {
 
                                 // 启动接收任务
                                 let state_clone = state.clone();
-                                let handler = input_handler.clone();
+                                let sender = input_sender.clone();
                                 tokio::spawn(async move {
                                     while let Some(msg) = r.next().await {
                                         match msg {
                                             Ok(Message::Text(text)) => {
                                                 // 尝试解析为输入事件
                                                 if let Ok(event) = serde_json::from_str::<crate::input::InputEvent>(&text) {
-                                                    let h = handler.lock().await;
-                                                    if let Some(h_fn) = h.as_ref() {
-                                                        h_fn(event);
-                                                    }
+                                                    let _ = sender.send(event);
                                                 } else {
                                                     tracing::debug!("收到消息: {}", text);
                                                 }
@@ -327,17 +329,14 @@ impl VideoClient {
 
         // 启动接收任务
         let connected = self.state.clone();
-        let input_handler = self.input_handler.clone();
+        let sender = self.input_sender.clone();
         tokio::spawn(async move {
             while let Some(msg) = receiver.next().await {
                 match msg {
                     Ok(Message::Text(text)) => {
                         // 尝试解析为输入事件
                         if let Ok(event) = serde_json::from_str::<crate::input::InputEvent>(&text) {
-                            let h = input_handler.lock().await;
-                            if let Some(h_fn) = h.as_ref() {
-                                h_fn(event);
-                            }
+                            let _ = sender.send(event);
                         } else {
                             tracing::debug!("收到消息: {}", text);
                         }

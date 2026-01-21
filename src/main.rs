@@ -255,15 +255,20 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
     let input_simulator = input::create_input_simulator()?;
     info!("输入模拟器初始化成功");
 
-    // 设置输入事件处理器
+    // 设置输入事件处理器 (使用 channel)
     let simulator = Arc::new(Mutex::new(input_simulator));
-    let simulator_ref = simulator.clone();
-    client.set_input_handler(move |event| {
-        let mut sim = simulator_ref.blocking_lock();
-        if let Err(e) = sim.handle_event(&event) {
-            error!("处理输入事件失败: {}", e);
+    let mut input_receiver = client.input_receiver().await;
+
+    // 启动输入事件处理任务
+    let simulator_task = async move {
+        while let Some(event) = input_receiver.recv().await {
+            let mut sim = simulator.lock().await;
+            if let Err(e) = sim.handle_event(&event) {
+                error!("处理输入事件失败: {}", e);
+            }
         }
-    });
+    };
+    let simulator_handle = tokio::spawn(simulator_task);
 
     // 连接到服务器
     if let Err(e) = client.connect().await {
