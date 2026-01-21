@@ -7,16 +7,13 @@
 use super::{Capturer, Frame};
 use anyhow::{anyhow, Result};
 use windows::Win32::Graphics::Gdi::{
-    GetDC, HDC, HGDIOBJ, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
-    GetDIBits, ReleaseDC, SRCCOPY,
+    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDC, GetDIBits, HDC, HBITMAP,
+    ReleaseDC, SelectObject, SRCCOPY,
 };
+use windows::Win32::Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_USAGE};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetDesktopWindow, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
 };
-use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject,
-};
-use std::ptr;
 
 /// Windows 屏幕捕获器
 pub struct WindowsCapturer {
@@ -25,7 +22,7 @@ pub struct WindowsCapturer {
     height: u32,
     hdc: HDC,
     mem_dc: HDC,
-    hbitmap: HGDIOBJ,
+    hbitmap: HBITMAP,
     is_started: bool,
 }
 
@@ -54,7 +51,7 @@ impl WindowsCapturer {
                 height: height as u32,
                 hdc: HDC::default(),
                 mem_dc: HDC::default(),
-                hbitmap: HGDIOBJ::default(),
+                hbitmap: HBITMAP::default(),
                 is_started: false,
             })
         }
@@ -100,9 +97,9 @@ impl WindowsCapturer {
             self.hbitmap = CreateDIBSection(
                 self.hdc,
                 &bmi,
-                0,
+                DIB_USAGE(0),
                 std::ptr::null_mut(),
-                std::ptr::null_mut(),
+                None,
                 0,
             )?;
 
@@ -198,7 +195,7 @@ impl Capturer for WindowsCapturer {
                     self.height as u32,
                     Some(data.as_mut_ptr() as *mut _),
                     &mut bitmap_info,
-                    0,
+                    DIB_USAGE(0),
                 );
 
                 if scan_lines == 0 {

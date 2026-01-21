@@ -78,20 +78,20 @@ impl WindowsInputSimulator {
 
     /// 发送鼠标输入
     fn send_mouse_input(flags: u32, x: i32, y: i32, data: u32) -> Result<()> {
-        use windows::Win32::UI::WindowsAndMessaging::{SendInput, INPUT, INPUT_0, MOUSEINPUT};
+        use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, MOUSEINPUT, INPUT_MOUSE, MOUSE_EVENT_FLAGS};
 
         unsafe {
             let mouse_input = MOUSEINPUT {
                 dx: x,
                 dy: y,
                 mouseData: data,
-                dwFlags: flags,
+                dwFlags: MOUSE_EVENT_FLAGS(flags),
                 time: 0,
                 dwExtraInfo: 0,
             };
 
             let input = INPUT {
-                r#type: windows::Win32::UI::WindowsAndMessaging::INPUT_MOUSE,
+                r#type: INPUT_MOUSE,
                 Anonymous: INPUT_0 {
                     mi: mouse_input,
                 },

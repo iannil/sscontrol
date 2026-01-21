@@ -179,7 +179,7 @@ impl PeerConnectionManager for SimplePeerConnection {
         })
     }
 
-    fn set_answer(&mut self, answer: &SdpMessage) -> Result<()> {
+    fn set_answer(&mut self, _answer: &SdpMessage) -> Result<()> {
         tracing::info!("设置 SDP Answer");
         self.state = PeerConnectionState::Connected;
         Ok(())

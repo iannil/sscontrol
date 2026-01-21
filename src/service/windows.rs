@@ -10,18 +10,13 @@
 
 use anyhow::{anyhow, Result};
 use std::time::Duration;
+use std::ffi::OsString;
 
 use windows_service::{
     service::{
         ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceType,
-        StateStatus,
     },
-    service_manager::{ServiceManager, ServiceManagerConfig},
-};
-
-use windows::Win32::System::Services::{
-    SC_MANAGER_ALL_ACCESS, SERVICE_ALL_ACCESS, SERVICE_QUERY_STATUS, SERVICE_START,
-    SERVICE_STOP,
+    service_manager::{ServiceManager, ServiceManagerAccess},
 };
 
 const SERVICE_NAME: &str = "sscontrol";
@@ -35,26 +30,16 @@ impl WindowsServiceController {
         Self
     }
 
-    /// 获取服务管理器访问权限
-    fn get_manager_access() -> Result<Vec<u32>> {
-        // 默认请求所有访问权限
-        Ok(vec![
-            SC_MANAGER_ALL_ACCESS.0,
-            windows_service::service_manager::ServiceManagerAccess::CONNECT.0,
-        ])
-    }
-
     /// 获取服务访问权限
     fn get_service_access() -> ServiceAccess {
-        ServiceAccess::from_bits(SERVICE_ALL_ACCESS.0)
-            .unwrap_or_else(|| ServiceAccess::START | ServiceAccess::STOP | ServiceAccess::QUERY_STATUS)
+        ServiceAccess::START | ServiceAccess::STOP | ServiceAccess::DELETE | ServiceAccess::QUERY_STATUS
     }
 
     /// 连接到服务管理器
     fn connect_manager() -> Result<ServiceManager> {
         let manager = ServiceManager::local_computer(
             None::<&str>,
-            Self::get_manager_access()?,
+            ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE | ServiceManagerAccess::CONNECT,
         )?;
         Ok(manager)
     }
@@ -70,13 +55,13 @@ impl super::ServiceController for WindowsServiceController {
 
         // 创建服务信息
         let service_info = ServiceInfo {
-            name: SERVICE_NAME.to_string(),
-            display_name: SERVICE_DISPLAY_NAME.to_string(),
+            name: OsString::from(SERVICE_NAME),
+            display_name: OsString::from(SERVICE_DISPLAY_NAME),
             service_type: ServiceType::OWN_PROCESS,
             start_type: ServiceStartType::AutoStart,
             error_control: ServiceErrorControl::Normal,
             executable_path: exe_path.clone(),
-            launch_arguments: vec!["run".to_string()],
+            launch_arguments: vec![OsString::from("run")],
             dependencies: vec![],
             account_name: None,
             account_password: None,
@@ -97,7 +82,7 @@ impl super::ServiceController for WindowsServiceController {
 
         // 打开服务
         let service = manager.open_service(
-            SERVICE_NAME,
+            OsString::from(SERVICE_NAME),
             ServiceAccess::DELETE,
         )
         .map_err(|e| anyhow!("打开服务失败: {}", e))?;
@@ -116,13 +101,13 @@ impl super::ServiceController for WindowsServiceController {
 
         // 打开服务
         let service = manager.open_service(
-            SERVICE_NAME,
+            OsString::from(SERVICE_NAME),
             ServiceAccess::START,
         )
         .map_err(|e| anyhow!("打开服务失败: {}", e))?;
 
         // 启动服务
-        service.start(&["run"])
+        service.start(&[OsString::from("run")])
             .map_err(|e| anyhow!("启动服务失败: {}", e))?;
 
         println!("服务已启动: {}", SERVICE_NAME);
@@ -135,13 +120,13 @@ impl super::ServiceController for WindowsServiceController {
 
         // 打开服务
         let service = manager.open_service(
-            SERVICE_NAME,
+            OsString::from(SERVICE_NAME),
             ServiceAccess::STOP,
         )
         .map_err(|e| anyhow!("打开服务失败: {}", e))?;
 
         // 停止服务
-        let status = service.stop()
+        let _status = service.stop()
             .map_err(|e| anyhow!("停止服务失败: {}", e))?;
 
         // 等待服务停止
@@ -158,7 +143,7 @@ impl super::ServiceController for WindowsServiceController {
 
         // 打开服务
         let service = manager.open_service(
-            SERVICE_NAME,
+            OsString::from(SERVICE_NAME),
             ServiceAccess::QUERY_STATUS,
         )
         .map_err(|e| anyhow!("打开服务失败: {}", e))?;
@@ -180,7 +165,7 @@ impl super::ServiceController for WindowsServiceController {
 
     fn is_installed(&self) -> bool {
         if let Ok(manager) = Self::connect_manager() {
-            if manager.open_service(SERVICE_NAME, ServiceAccess::QUERY_STATUS).is_ok() {
+            if manager.open_service(OsString::from(SERVICE_NAME), ServiceAccess::QUERY_STATUS).is_ok() {
                 return true;
             }
         }
@@ -195,14 +180,13 @@ impl super::ServiceController for WindowsServiceController {
 pub fn run_service() -> Result<()> {
     use windows_service::{
         service::ServiceControl,
-        service_control_handler::{ServiceControlHandlerResult, ServiceStatusHandle},
+        service_control_handler::ServiceControlHandlerResult,
         service::{ServiceControlAccept, ServiceState, ServiceStatus},
     };
 
     use std::sync::mpsc;
-    use std::thread;
 
-    let (tx, rx) = mpsc::channel();
+    let (tx, _rx) = mpsc::channel();
 
     // 定义服务控制事件处理函数
     let event_handler = move |control_event| -> ServiceControlHandlerResult {

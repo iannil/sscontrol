@@ -113,7 +113,7 @@ impl TokenManager {
     }
 
     /// 清理过期的 nonce
-    async fn cleanup_old_nonces(&self, used: &mut HashSet<String>, now: u64) {
+    async fn cleanup_old_nonces(&self, used: &mut HashSet<String>, _now: u64) {
         // 简单的清理策略：当集合过大时清空
         // 生产环境应该使用更精细的时间窗口清理
         if used.len() > 10000 {

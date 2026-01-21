@@ -77,6 +77,8 @@ windows = { version = "0.52", features = [
     "Graphics_DirectX",
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Services",
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
 ]}
 windows-service = "0.7"
 widestring = "1.0"

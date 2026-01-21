@@ -76,7 +76,7 @@ pub fn create_capturer(screen_index: Option<u32>) -> Result<Box<dyn Capturer>> {
 
     #[cfg(target_os = "windows")]
     {
-        compile_error!("Windows 捕获器尚未实现");
+        Ok(Box::new(windows::WindowsCapturer::new(screen_index)?))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
