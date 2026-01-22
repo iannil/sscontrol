@@ -2,6 +2,8 @@
 //!
 //! 提供跨平台的屏幕捕获抽象
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 
 /// 视频帧

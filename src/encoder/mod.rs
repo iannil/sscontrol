@@ -2,6 +2,8 @@
 //!
 //! 提供视频帧编码功能
 
+#![allow(dead_code)]
+
 use crate::capture::Frame;
 use anyhow::Result;
 
@@ -88,7 +90,7 @@ impl Encoder for SimpleEncoder {
         packet_data.extend_from_slice(&frame.data);
 
         self.frame_count += 1;
-        let is_key_frame = self.frame_count % 30 == 0; // 每30帧一个关键帧
+        let is_key_frame = self.frame_count.is_multiple_of(30); // 每30帧一个关键帧
 
         Ok(Some(EncodedPacket {
             data: packet_data,

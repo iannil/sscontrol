@@ -2,6 +2,8 @@
 //!
 //! 在本地模拟鼠标和键盘操作
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 
 /// 鼠标按钮

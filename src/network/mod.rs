@@ -2,6 +2,8 @@
 //!
 //! 提供 WebSocket 客户端功能，支持自动重连和输入事件处理
 
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Result};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};

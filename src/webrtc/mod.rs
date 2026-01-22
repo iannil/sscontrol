@@ -2,6 +2,8 @@
 //!
 //! 提供 WebRTC 连接管理和媒体传输功能
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 

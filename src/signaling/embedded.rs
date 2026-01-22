@@ -2,6 +2,8 @@
 //!
 //! 使用 axum 实现，支持 HTTP 反向代理 (如 Cloudflare Tunnel)
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use axum::{
     extract::{

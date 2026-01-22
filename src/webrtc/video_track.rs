@@ -2,6 +2,8 @@
 //!
 //! 用于通过 WebRTC 发送视频流
 
+#![allow(dead_code)]
+
 #[cfg(feature = "webrtc")]
 use super::WebRTCConfig;
 #[cfg(feature = "webrtc")]

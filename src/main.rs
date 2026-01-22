@@ -390,6 +390,7 @@ async fn run_host_mode(port: u16) -> Result<()> {
 /// 被控端模式实现
 async fn run_host_mode_impl(port: u16, #[allow(unused)] enable_tunnel: bool) -> Result<()> {
     use signaling::{EmbeddedSignalingServer, HostSignalEvent};
+    #[cfg(feature = "webrtc")]
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::Mutex;
@@ -486,6 +487,7 @@ async fn run_host_mode_impl(port: u16, #[allow(unused)] enable_tunnel: bool) -> 
     let signaling_server = Arc::new(signaling_server);
 
     // 处理信令事件
+    #[cfg(feature = "webrtc")]
     let signaling_server_clone = signaling_server.clone();
     #[cfg(feature = "webrtc")]
     let sessions_clone = sessions.clone();
@@ -509,68 +511,67 @@ async fn run_host_mode_impl(port: u16, #[allow(unused)] enable_tunnel: bool) -> 
                         }
                     }
                 }
+                #[cfg(feature = "webrtc")]
                 HostSignalEvent::Offer { from, sdp } => {
                     info!("收到 Offer from: {}", from);
 
-                    #[cfg(feature = "webrtc")]
-                    {
-                        // 创建 WebRTC 会话
-                        match webrtc::host_session::HostSession::new(from.clone()).await {
-                            Ok(session) => {
-                                let session = Arc::new(session);
+                    // 创建 WebRTC 会话
+                    match webrtc::host_session::HostSession::new(from.clone()).await {
+                        Ok(session) => {
+                            let session = Arc::new(session);
 
-                                // 处理 Offer，生成 Answer
-                                match session.handle_offer(&sdp).await {
-                                    Ok(answer_sdp) => {
-                                        // 发送 Answer
-                                        signaling_server_clone
-                                            .send_answer(&from, &answer_sdp)
-                                            .await;
-                                        info!("已发送 Answer to: {}", from);
+                            // 处理 Offer，生成 Answer
+                            match session.handle_offer(&sdp).await {
+                                Ok(answer_sdp) => {
+                                    // 发送 Answer
+                                    signaling_server_clone
+                                        .send_answer(&from, &answer_sdp)
+                                        .await;
+                                    info!("已发送 Answer to: {}", from);
 
-                                        // 发送 ICE 候选
-                                        let signaling = signaling_server_clone.clone();
-                                        let peer_id = from.clone();
-                                        let session_for_ice = session.clone();
+                                    // 发送 ICE 候选
+                                    let signaling = signaling_server_clone.clone();
+                                    let peer_id = from.clone();
+                                    let session_for_ice = session.clone();
 
-                                        tokio::spawn(async move {
-                                            while let Some(ice) =
-                                                session_for_ice.next_ice_candidate().await
-                                            {
-                                                signaling
-                                                    .send_ice(
-                                                        &peer_id,
-                                                        &ice.candidate,
-                                                        &ice.sdp_mid,
-                                                        ice.sdp_mline_index,
-                                                    )
-                                                    .await;
-                                            }
-                                        });
-
-                                        // 保存会话
+                                    tokio::spawn(async move {
+                                        while let Some(ice) =
+                                            session_for_ice.next_ice_candidate().await
                                         {
-                                            let mut sessions = sessions_clone.lock().await;
-                                            sessions.insert(from.clone(), session);
+                                            signaling
+                                                .send_ice(
+                                                    &peer_id,
+                                                    &ice.candidate,
+                                                    &ice.sdp_mid,
+                                                    ice.sdp_mline_index,
+                                                )
+                                                .await;
                                         }
-                                        info!("WebRTC 会话已建立: {}", from);
+                                    });
+
+                                    // 保存会话
+                                    {
+                                        let mut sessions = sessions_clone.lock().await;
+                                        sessions.insert(from.clone(), session);
                                     }
-                                    Err(e) => {
-                                        error!("处理 Offer 失败: {}", e);
-                                    }
+                                    info!("WebRTC 会话已建立: {}", from);
+                                }
+                                Err(e) => {
+                                    error!("处理 Offer 失败: {}", e);
                                 }
                             }
-                            Err(e) => {
-                                error!("创建 WebRTC 会话失败: {}", e);
-                            }
+                        }
+                        Err(e) => {
+                            error!("创建 WebRTC 会话失败: {}", e);
                         }
                     }
-
-                    #[cfg(not(feature = "webrtc"))]
-                    {
-                        warn!("WebRTC feature 未启用，无法处理 Offer");
-                    }
                 }
+                #[cfg(not(feature = "webrtc"))]
+                HostSignalEvent::Offer { from, sdp: _ } => {
+                    info!("收到 Offer from: {}", from);
+                    warn!("WebRTC feature 未启用，无法处理 Offer");
+                }
+                #[cfg(feature = "webrtc")]
                 HostSignalEvent::Ice {
                     from,
                     candidate,
@@ -579,20 +580,26 @@ async fn run_host_mode_impl(port: u16, #[allow(unused)] enable_tunnel: bool) -> 
                 } => {
                     info!("收到 ICE from: {}", from);
 
-                    #[cfg(feature = "webrtc")]
-                    {
-                        let sessions = sessions_clone.lock().await;
-                        if let Some(session) = sessions.get(&from) {
-                            let ice = webrtc::host_session::IceCandidate {
-                                candidate,
-                                sdp_mid,
-                                sdp_mline_index,
-                            };
-                            if let Err(e) = session.add_ice_candidate(&ice).await {
-                                error!("添加 ICE 候选失败: {}", e);
-                            }
+                    let sessions = sessions_clone.lock().await;
+                    if let Some(session) = sessions.get(&from) {
+                        let ice = webrtc::host_session::IceCandidate {
+                            candidate,
+                            sdp_mid,
+                            sdp_mline_index,
+                        };
+                        if let Err(e) = session.add_ice_candidate(&ice).await {
+                            error!("添加 ICE 候选失败: {}", e);
                         }
                     }
+                }
+                #[cfg(not(feature = "webrtc"))]
+                HostSignalEvent::Ice {
+                    from,
+                    candidate: _,
+                    sdp_mid: _,
+                    sdp_mline_index: _,
+                } => {
+                    info!("收到 ICE from: {} (WebRTC 未启用，忽略)", from);
                 }
             }
         }

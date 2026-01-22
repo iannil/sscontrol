@@ -2,6 +2,8 @@
 //!
 //! 使用 webrtc-rs 库实现真实的 WebRTC 连接
 
+#![allow(dead_code)]
+
 #[cfg(feature = "webrtc")]
 use super::{IceCandidate, SdpMessage, SdpType, WebRTCConfig};
 #[cfg(feature = "webrtc")]

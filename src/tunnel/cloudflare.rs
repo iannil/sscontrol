@@ -2,6 +2,8 @@
 //!
 //! 使用 cloudflared crate 创建 Quick Tunnel
 
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Result};
 use cloudflared::Tunnel;
 use tracing::{info, warn, debug};

@@ -2,6 +2,8 @@
 //!
 //! 提供认证、TLS 加密和 token 管理功能
 
+#![allow(dead_code)]
+
 pub mod auth;
 pub mod tls;
 pub mod token;

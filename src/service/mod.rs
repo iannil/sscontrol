@@ -7,6 +7,8 @@
 //! - macOS: LaunchAgent
 //! - Linux: systemd
 
+#![allow(dead_code)]
+
 #[cfg(target_os = "windows")]
 pub mod windows;
 
@@ -88,7 +90,7 @@ pub fn create_controller() -> impl ServiceController {
 
     #[cfg(target_os = "macos")]
     {
-        return macos::MacOSLaunchAgent::new();
+        macos::MacOSLaunchAgent::new()
     }
 
     #[cfg(target_os = "linux")]

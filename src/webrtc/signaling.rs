@@ -1,6 +1,10 @@
 //! WebRTC 信令客户端
 //!
 //! 用于连接信令服务器并与其他对等端交换 SDP 和 ICE 候选
+//!
+//! 注意: 此模块目前为客户端连接模式预留，暂未使用
+
+#![allow(dead_code)]
 
 use anyhow::{anyhow, Result};
 use futures_util::{SinkExt, StreamExt};

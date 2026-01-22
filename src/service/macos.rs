@@ -20,6 +20,12 @@ pub struct MacOSLaunchAgent {
     plist_path: PathBuf,
 }
 
+impl Default for MacOSLaunchAgent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MacOSLaunchAgent {
     pub fn new() -> Self {
         let home = std::env::var("HOME")

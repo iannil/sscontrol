@@ -2,6 +2,8 @@
 //!
 //! 处理来自控制端的 WebRTC 连接请求，发送屏幕视频流
 
+#![allow(dead_code)]
+
 #[cfg(feature = "webrtc")]
 use anyhow::{anyhow, Result};
 #[cfg(feature = "webrtc")]
