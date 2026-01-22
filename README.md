@@ -2,7 +2,7 @@
 
 A headless remote desktop application built with Rust, featuring WebRTC P2P communication, cross-platform support, and system service integration.
 
-[中文文档](README_ZH.md)
+[中文文档](README_CN.md)
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -32,10 +32,32 @@ A headless remote desktop application built with Rust, featuring WebRTC P2P comm
 ### Prerequisites
 
 - Rust 1.70 or later
+- FFmpeg development libraries (required for h264 feature)
 - Platform-specific requirements:
   - macOS: Screen Recording + Accessibility permissions
   - Windows: Administrator privileges for service installation
   - Linux: systemd for service management
+
+#### Installing FFmpeg
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+```
+
+**Windows:**
+```batch
+# Using vcpkg
+vcpkg install ffmpeg:x64-windows
+set FFMPEG_DIR=C:\vcpkg\installed\x64-windows
+
+# Or download from https://github.com/BtbN/FFmpeg-Builds/releases
+```
 
 ### Build from Source
 
@@ -44,11 +66,23 @@ A headless remote desktop application built with Rust, featuring WebRTC P2P comm
 git clone https://github.com/iannil/sscontrol.git
 cd sscontrol
 
-# Build release version
-cargo build --release
+# Build release version with full features
+cargo build --release --features "h264,webrtc,security,service"
 
 # (Optional) Install the binary
 sudo cp target/release/sscontrol /usr/local/bin/
+```
+
+#### Platform-Specific Build Scripts
+
+**macOS:**
+```bash
+./build-macos.sh
+```
+
+**Windows:**
+```batch
+build-windows.bat
 ```
 
 ### Installation Scripts
@@ -72,6 +106,29 @@ Windows (PowerShell as Administrator):
 ```
 
 ## Usage
+
+### Simple LAN Mode (Recommended for Local Network)
+
+The simplest way to use sscontrol is the host/connect mode for local network connections:
+
+**On the host machine (share your screen):**
+
+```bash
+# Start screen sharing
+sscontrol host --port 9527
+
+# With API key authentication
+sscontrol host --port 9527 --api-key your-secret-key
+```
+
+**On the viewer machine (view remote screen):**
+
+```bash
+# Connect to host (opens web browser automatically)
+sscontrol connect --ip 192.168.1.100 --port 9527
+```
+
+Or simply open a browser and navigate to `http://<host-ip>:9527`
 
 ### Basic Commands
 

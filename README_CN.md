@@ -32,10 +32,32 @@
 ### 前置要求
 
 - Rust 1.70 或更高版本
+- FFmpeg 开发库（h264 功能必需）
 - 平台特定要求：
   - macOS: 屏幕录制 + 辅助功能权限
   - Windows: 安装服务需要管理员权限
   - Linux: systemd 用于服务管理
+
+#### 安装 FFmpeg
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+```
+
+**Windows:**
+```batch
+# 使用 vcpkg
+vcpkg install ffmpeg:x64-windows
+set FFMPEG_DIR=C:\vcpkg\installed\x64-windows
+
+# 或从 https://github.com/BtbN/FFmpeg-Builds/releases 下载
+```
 
 ### 从源码构建
 
@@ -44,11 +66,23 @@
 git clone https://github.com/iannil/sscontrol.git
 cd sscontrol
 
-# 构建发布版本
-cargo build --release
+# 构建完整功能版本
+cargo build --release --features "h264,webrtc,security,service"
 
 # （可选）安装二进制文件
 sudo cp target/release/sscontrol /usr/local/bin/
+```
+
+#### 平台专用编译脚本
+
+**macOS:**
+```bash
+./build-macos.sh
+```
+
+**Windows:**
+```batch
+build-windows.bat
 ```
 
 ### 使用安装脚本
@@ -72,6 +106,29 @@ Windows（以管理员身份运行 PowerShell）:
 ```
 
 ## 使用方法
+
+### 极简局域网模式（推荐用于本地网络）
+
+最简单的使用方式是 host/connect 模式，适用于局域网连接：
+
+**在被控端（共享屏幕的机器）:**
+
+```bash
+# 启动屏幕共享
+sscontrol host --port 9527
+
+# 带 API 密钥认证
+sscontrol host --port 9527 --api-key your-secret-key
+```
+
+**在控制端（查看远程屏幕的机器）:**
+
+```bash
+# 连接到被控端（自动打开浏览器）
+sscontrol connect --ip 192.168.1.100 --port 9527
+```
+
+或者直接在浏览器中访问 `http://<被控端IP>:9527`
 
 ### 基本命令
 
