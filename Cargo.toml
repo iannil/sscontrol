@@ -78,6 +78,10 @@ thiserror = "1.0"
 # CLI
 clap = { version = "4.4", features = ["derive", "env"] }
 
+# HTTP REST API (for local signaling server)
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+
 # macOS specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25"
@@ -119,3 +123,7 @@ path = "src/main.rs"
 [[bin]]
 name = "sscontrol-signaling"
 path = "src/bin/signaling_server.rs"
+
+[[bin]]
+name = "sscontrol-signaling-rest"
+path = "src/bin/signaling_rest_server.rs"

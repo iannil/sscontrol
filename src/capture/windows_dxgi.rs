@@ -9,20 +9,18 @@
 
 use super::{Capturer, Frame};
 use anyhow::{anyhow, Result};
-use std::ptr;
+use windows::core::ComInterface;
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_HARDWARE;
 use windows::Win32::Graphics::Direct3D11::{
     D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
     D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAP_READ,
-    D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
+    D3D11_MAPPED_SUBRESOURCE, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
 };
 use windows::Win32::Graphics::Dxgi::{
     IDXGIAdapter, IDXGIDevice, IDXGIOutput, IDXGIOutput1, IDXGIOutputDuplication,
     DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_WAIT_TIMEOUT, DXGI_OUTDUPL_FRAME_INFO,
-    DXGI_RESOURCE_PRIORITY_MAXIMUM,
 };
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
-use windows::core::Interface;
 
 /// DXGI Desktop Duplication 捕获器
 pub struct DXGICapturer {
@@ -76,7 +74,8 @@ impl DXGICapturer {
             let output1: IDXGIOutput1 = output.cast()?;
 
             // 获取输出描述以获取分辨率
-            let desc = output.GetDesc()?;
+            let mut desc = windows::Win32::Graphics::Dxgi::DXGI_OUTPUT_DESC::default();
+            output.GetDesc(&mut desc)?;
             let width = (desc.DesktopCoordinates.right - desc.DesktopCoordinates.left) as u32;
             let height = (desc.DesktopCoordinates.bottom - desc.DesktopCoordinates.top) as u32;
 
@@ -123,9 +122,9 @@ impl DXGICapturer {
                     Quality: 0,
                 },
                 Usage: D3D11_USAGE_STAGING,
-                BindFlags: windows::Win32::Graphics::Direct3D11::D3D11_BIND_FLAG(0),
-                CPUAccessFlags: D3D11_CPU_ACCESS_READ,
-                MiscFlags: windows::Win32::Graphics::Direct3D11::D3D11_RESOURCE_MISC_FLAG(0),
+                BindFlags: 0,
+                CPUAccessFlags: D3D11_CPU_ACCESS_READ.0 as u32,
+                MiscFlags: 0,
             };
 
             let mut texture: Option<ID3D11Texture2D> = None;
@@ -203,7 +202,8 @@ impl Capturer for DXGICapturer {
             self.context.CopyResource(staging, &desktop_texture);
 
             // 映射纹理以读取数据
-            let mapped = self.context.Map(staging, 0, D3D11_MAP_READ, 0)?;
+            let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+            self.context.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
 
             // 计算数据大小
             let row_pitch = mapped.RowPitch as usize;

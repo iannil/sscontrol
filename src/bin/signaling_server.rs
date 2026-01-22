@@ -31,6 +31,62 @@ use tungstenite::protocol::Message;
 #[cfg(feature = "security")]
 use sscontrol::security::{ApiKeyAuth, TokenManager};
 
+#[cfg(feature = "security")]
+use std::pin::Pin;
+#[cfg(feature = "security")]
+use std::task::{Context, Poll};
+#[cfg(feature = "security")]
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+
+/// TLS/非 TLS 统一流类型
+#[cfg(feature = "security")]
+enum MaybeTlsStream {
+    Plain(TcpStream),
+    Tls(tokio_rustls::server::TlsStream<TcpStream>),
+}
+
+#[cfg(feature = "security")]
+impl AsyncRead for MaybeTlsStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_read(cx, buf),
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+#[cfg(feature = "security")]
+impl AsyncWrite for MaybeTlsStream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_write(cx, buf),
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_flush(cx),
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_shutdown(cx),
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_shutdown(cx),
+        }
+    }
+}
+
 /// SSControl 信令服务器
 #[derive(Parser, Debug)]
 #[command(name = "sscontrol-signaling")]
@@ -237,11 +293,14 @@ impl ServerState {
     }
 }
 
-async fn handle_client(
-    ws_stream: tokio_tungstenite::WebSocketStream<TcpStream>,
+async fn handle_client<S>(
+    ws_stream: tokio_tungstenite::WebSocketStream<S>,
     peer_id: String,
     state: Arc<RwLock<ServerState>>,
-) {
+)
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
 
@@ -567,7 +626,8 @@ async fn main() -> Result<()> {
     {
         use std::fs::File;
         use std::io::BufReader;
-        use tokio_rustls::rustls::{Certificate, PrivateKey, ServerConfig};
+        use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+        use tokio_rustls::rustls::ServerConfig;
         use tokio_rustls::TlsAcceptor;
 
         tracing::info!("启用 TLS: cert={}, key={}", cert_path, key_path);
@@ -575,34 +635,33 @@ async fn main() -> Result<()> {
         let cert_file = File::open(cert_path)?;
         let key_file = File::open(key_path)?;
 
-        let certs: Vec<Certificate> = rustls_pemfile::certs(&mut BufReader::new(cert_file))?
-            .into_iter()
-            .map(Certificate)
-            .collect();
+        let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut BufReader::new(cert_file))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        let mut keys: Vec<PrivateKey> =
-            rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(key_file))?
-                .into_iter()
-                .map(PrivateKey)
-                .collect();
+        let key: PrivateKeyDer<'static> = {
+            let mut keys: Vec<PrivateKeyDer<'static>> =
+                rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(key_file))
+                    .map(|k| k.map(|k| k.into()))
+                    .collect::<Result<Vec<_>, _>>()?;
 
-        if keys.is_empty() {
-            // 尝试读取 RSA 私钥
-            let key_file = File::open(key_path)?;
-            keys = rustls_pemfile::rsa_private_keys(&mut BufReader::new(key_file))?
-                .into_iter()
-                .map(PrivateKey)
-                .collect();
-        }
+            if keys.is_empty() {
+                // 尝试读取 RSA 私钥
+                let key_file = File::open(key_path)?;
+                keys = rustls_pemfile::rsa_private_keys(&mut BufReader::new(key_file))
+                    .map(|k| k.map(|k| k.into()))
+                    .collect::<Result<Vec<_>, _>>()?;
+            }
 
-        if keys.is_empty() {
-            anyhow::bail!("未找到有效的私钥");
-        }
+            if keys.is_empty() {
+                anyhow::bail!("未找到有效的私钥");
+            }
+
+            keys.remove(0)
+        };
 
         let config = ServerConfig::builder()
-            .with_safe_defaults()
             .with_no_client_auth()
-            .with_single_cert(certs, keys.remove(0))?;
+            .with_single_cert(certs, key)?;
 
         Some(TlsAcceptor::from(Arc::new(config)))
     } else {
@@ -660,24 +719,20 @@ async fn main() -> Result<()> {
 
                             // 否则尝试 WebSocket 升级
                             #[cfg(feature = "security")]
-                            let ws_stream = if let Some(acceptor) = tls_acceptor {
-                                match acceptor.accept(stream).await {
-                                    Ok(tls_stream) => {
-                                        match accept_async(tls_stream).await {
-                                            Ok(ws) => ws,
-                                            Err(e) => {
-                                                tracing::debug!("WebSocket 握手失败: {}", e);
-                                                return;
-                                            }
+                            let ws_stream = {
+                                let maybe_tls_stream = if let Some(acceptor) = tls_acceptor {
+                                    match acceptor.accept(stream).await {
+                                        Ok(tls_stream) => MaybeTlsStream::Tls(tls_stream),
+                                        Err(e) => {
+                                            tracing::debug!("TLS 握手失败: {}", e);
+                                            return;
                                         }
                                     }
-                                    Err(e) => {
-                                        tracing::debug!("TLS 握手失败: {}", e);
-                                        return;
-                                    }
-                                }
-                            } else {
-                                match accept_async(stream).await {
+                                } else {
+                                    MaybeTlsStream::Plain(stream)
+                                };
+
+                                match accept_async(maybe_tls_stream).await {
                                     Ok(ws) => ws,
                                     Err(e) => {
                                         tracing::debug!("WebSocket 握手失败: {}", e);

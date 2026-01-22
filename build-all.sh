@@ -23,7 +23,7 @@ DIST_DIR="$SCRIPT_DIR/dist"
 mkdir -p "$DIST_DIR"
 
 # Features (h264 需要 FFmpeg，交叉编译复杂，暂时跳过)
-FEATURES="webrtc,security,service"
+FEATURES="webrtc,security,service,discovery"
 RELEASE_FLAG="--release"
 
 echo ""
@@ -84,7 +84,9 @@ build_macos_x64() {
     local out_dir="$DIST_DIR/macos-x86_64"
     mkdir -p "$out_dir"
     cp "target/x86_64-apple-darwin/release/sscontrol" "$out_dir/"
+    cp "target/x86_64-apple-darwin/release/sscontrol-signaling-rest" "$out_dir/" 2>/dev/null || true
     info "  -> $out_dir/sscontrol"
+    info "  -> $out_dir/sscontrol-signaling-rest"
 }
 
 # 编译 macOS (Apple Silicon)
@@ -95,7 +97,9 @@ build_macos_arm64() {
     local out_dir="$DIST_DIR/macos-aarch64"
     mkdir -p "$out_dir"
     cp "target/aarch64-apple-darwin/release/sscontrol" "$out_dir/"
+    cp "target/aarch64-apple-darwin/release/sscontrol-signaling-rest" "$out_dir/" 2>/dev/null || true
     info "  -> $out_dir/sscontrol"
+    info "  -> $out_dir/sscontrol-signaling-rest"
 }
 
 # 编译 macOS Universal Binary
@@ -103,6 +107,8 @@ build_macos_universal() {
     info "创建 macOS Universal Binary..."
     local x64_bin="target/x86_64-apple-darwin/release/sscontrol"
     local arm_bin="target/aarch64-apple-darwin/release/sscontrol"
+    local x64_rest="target/x86_64-apple-darwin/release/sscontrol-signaling-rest"
+    local arm_rest="target/aarch64-apple-darwin/release/sscontrol-signaling-rest"
     local universal_dir="$DIST_DIR/macos-universal"
 
     mkdir -p "$universal_dir"
@@ -112,6 +118,11 @@ build_macos_universal() {
         info "  -> $universal_dir/sscontrol"
     else
         warn "无法创建 Universal Binary（缺少架构文件）"
+    fi
+
+    if [ -f "$x64_rest" ] && [ -f "$arm_rest" ]; then
+        lipo -create -output "$universal_dir/sscontrol-signaling-rest" "$x64_rest" "$arm_rest"
+        info "  -> $universal_dir/sscontrol-signaling-rest"
     fi
 }
 
@@ -124,26 +135,10 @@ build_windows() {
     mkdir -p "$out_dir"
     cp "target/x86_64-pc-windows-gnu/release/sscontrol.exe" "$out_dir/" 2>/dev/null || \
     cp "target/x86_64-pc-windows-gnu/release/sscontrol" "$out_dir/sscontrol.exe"
+    cp "target/x86_64-pc-windows-gnu/release/sscontrol-signaling-rest.exe" "$out_dir/" 2>/dev/null || \
+    cp "target/x86_64-pc-windows-gnu/release/sscontrol-signaling-rest" "$out_dir/sscontrol-signaling-rest.exe" 2>/dev/null || true
     info "  -> $out_dir/sscontrol.exe"
-}
-
-# 编译 Linux
-build_linux() {
-    info "编译 Linux x86_64..."
-
-    if [ "$HAS_CROSS" = true ] && docker info &> /dev/null; then
-        # 使用 cross 工具编译
-        cross build $RELEASE_FLAG --target x86_64-unknown-linux-gnu --features "$FEATURES"
-    else
-        # 直接使用 cargo（可能需要配置 linker）
-        warn "使用 cargo 直接编译 Linux，如果失败请安装 cross 工具"
-        cargo build $RELEASE_FLAG --target x86_64-unknown-linux-gnu --features "$FEATURES"
-    fi
-
-    local out_dir="$DIST_DIR/linux-x86_64"
-    mkdir -p "$out_dir"
-    cp "target/x86_64-unknown-linux-gnu/release/sscontrol" "$out_dir/" 2>/dev/null || true
-    info "  -> $out_dir/sscontrol"
+    info "  -> $out_dir/sscontrol-signaling-rest.exe"
 }
 
 # 打包
@@ -154,32 +149,32 @@ package() {
     cd "$DIST_DIR"
 
     # macOS x64
-    if [ -f "macos-x86_64/sscontrol" ]; then
-        tar czf "sscontrol-macos-x86_64.tar.gz" -C macos-x86_64 sscontrol
+    if [ -d "macos-x86_64" ]; then
+        tar czf "sscontrol-macos-x86_64.tar.gz" -C macos-x86_64 .
         info "  -> sscontrol-macos-x86_64.tar.gz"
     fi
 
     # macOS ARM64
-    if [ -f "macos-aarch64/sscontrol" ]; then
-        tar czf "sscontrol-macos-aarch64.tar.gz" -C macos-aarch64 sscontrol
+    if [ -d "macos-aarch64" ]; then
+        tar czf "sscontrol-macos-aarch64.tar.gz" -C macos-aarch64 .
         info "  -> sscontrol-macos-aarch64.tar.gz"
     fi
 
     # macOS Universal
-    if [ -f "macos-universal/sscontrol" ]; then
-        tar czf "sscontrol-macos-universal.tar.gz" -C macos-universal sscontrol
+    if [ -d "macos-universal" ]; then
+        tar czf "sscontrol-macos-universal.tar.gz" -C macos-universal .
         info "  -> sscontrol-macos-universal.tar.gz"
     fi
 
     # Windows
-    if [ -f "windows-x86_64/sscontrol.exe" ]; then
-        zip -q "sscontrol-windows-x86_64.zip" windows-x86_64/sscontrol.exe
+    if [ -d "windows-x86_64" ]; then
+        zip -q -j "sscontrol-windows-x86_64.zip" windows-x86_64/*
         info "  -> sscontrol-windows-x86_64.zip"
     fi
 
     # Linux
-    if [ -f "linux-x86_64/sscontrol" ]; then
-        tar czf "sscontrol-linux-x86_64.tar.gz" -C linux-x86_64 sscontrol
+    if [ -d "linux-x86_64" ]; then
+        tar czf "sscontrol-linux-x86_64.tar.gz" -C linux-x86_64 .
         info "  -> sscontrol-linux-x86_64.tar.gz"
     fi
 
@@ -203,15 +198,28 @@ summary() {
     info "二进制文件大小:"
     for dir in "$DIST_DIR"/*/; do
         if [ -d "$dir" ]; then
-            for bin in "$dir"sscontrol "$dir"sscontrol.exe; do
+            local name=$(basename "$dir")
+            for bin in "$dir"*; do
                 if [ -f "$bin" ]; then
                     local size=$(ls -lh "$bin" | awk '{print $5}')
-                    local name=$(basename "$(dirname "$bin")")
-                    info "  $name: $size"
+                    local binname=$(basename "$bin")
+                    info "  $name/$binname: $size"
                 fi
             done
         fi
     done
+    echo ""
+
+    # 使用说明
+    info "使用说明:"
+    info "  1. 在局域网任意机器启动信令服务器:"
+    info "     ./sscontrol-signaling-rest --port 8080"
+    info ""
+    info "  2. Windows 被控端:"
+    info "     sscontrol.exe host --signaling-url http://<信令服务器IP>:8080"
+    info ""
+    info "  3. Mac 控制端:"
+    info "     ./sscontrol connect --code <CODE> --pin <PIN> --signaling-url http://<信令服务器IP>:8080"
     echo ""
 }
 
@@ -223,7 +231,6 @@ build_macos_x64
 build_macos_arm64
 build_macos_universal
 build_windows
-build_linux
 
 package
 summary
