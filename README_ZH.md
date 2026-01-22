@@ -209,25 +209,6 @@ cargo build --release --features h264
 cargo build --release --features "h264,webrtc,security,service,discovery,deploy"
 ```
 
-## 示例程序
-
-```bash
-# WebSocket 测试服务器
-cargo run --example test_server
-
-# 屏幕捕获测试
-cargo run --example test_capture
-
-# 端到端延迟测试
-cargo run --example latency_test
-
-# WebRTC 演示（需要 webrtc 特性）
-cargo run --example webrtc_example --features webrtc
-
-# 信令服务器
-cargo run --example signaling_server
-```
-
 ## 性能
 
 测试环境：macOS，4K 分辨率（3840x2160）
@@ -248,6 +229,8 @@ sscontrol/
 │   ├── main.rs              # 程序入口
 │   ├── lib.rs               # 库入口
 │   ├── config.rs            # 配置管理
+│   ├── bin/                 # 附加二进制
+│   │   └── signaling_server.rs  # 独立信令服务器
 │   ├── capture/             # 屏幕捕获（macOS/Windows）
 │   ├── encoder/             # 视频编码（Simple/H.264）
 │   ├── input/               # 输入模拟（鼠标/键盘）
@@ -256,7 +239,6 @@ sscontrol/
 │   ├── security/            # 认证与 TLS
 │   ├── service/             # 系统服务集成
 │   └── deploy/              # 远程部署
-├── examples/                # 示例程序
 ├── scripts/                 # 安装脚本
 ├── cloudflare-worker/       # Cloudflare Worker 信令服务器
 └── docs/                    # 文档

@@ -209,25 +209,6 @@ cargo build --release --features h264
 cargo build --release --features "h264,webrtc,security,service,discovery,deploy"
 ```
 
-## Examples
-
-```bash
-# WebSocket test server
-cargo run --example test_server
-
-# Screen capture test
-cargo run --example test_capture
-
-# End-to-end latency test
-cargo run --example latency_test
-
-# WebRTC demo (requires webrtc feature)
-cargo run --example webrtc_example --features webrtc
-
-# Signaling server
-cargo run --example signaling_server
-```
-
 ## Performance
 
 Tested on macOS with 4K resolution (3840x2160):
@@ -248,6 +229,8 @@ sscontrol/
 │   ├── main.rs              # Entry point
 │   ├── lib.rs               # Library entry
 │   ├── config.rs            # Configuration management
+│   ├── bin/                 # Additional binaries
+│   │   └── signaling_server.rs  # Standalone signaling server
 │   ├── capture/             # Screen capture (macOS/Windows)
 │   ├── encoder/             # Video encoding (Simple/H.264)
 │   ├── input/               # Input simulation (Mouse/Keyboard)
@@ -256,7 +239,6 @@ sscontrol/
 │   ├── security/            # Auth & TLS
 │   ├── service/             # System service integration
 │   └── deploy/              # Remote deployment
-├── examples/                # Example programs
 ├── scripts/                 # Installation scripts
 ├── cloudflare-worker/       # Cloudflare Worker signaling server
 └── docs/                    # Documentation
