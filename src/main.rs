@@ -23,6 +23,10 @@ mod signaling;
 #[cfg(feature = "discovery")]
 mod connection;
 
+// 部署模块 (当启用 deploy feature 时)
+#[cfg(feature = "deploy")]
+mod deploy;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use encoder::Encoder;
@@ -131,6 +135,13 @@ enum Commands {
     /// 发现局域网设备 (需要 --features discovery)
     #[cfg(feature = "discovery")]
     Discover,
+
+    /// 部署信令服务器 (需要 --features deploy)
+    #[cfg(feature = "deploy")]
+    Deploy {
+        #[command(subcommand)]
+        action: DeployCommands,
+    },
 }
 
 /// 服务命令
@@ -146,6 +157,104 @@ enum ServiceCommands {
     Stop,
     /// 查看服务状态
     Status,
+}
+
+/// 部署命令 (需要 --features deploy)
+#[cfg(feature = "deploy")]
+#[derive(Subcommand, Debug)]
+enum DeployCommands {
+    /// 部署信令服务器到远程服务器
+    Signaling {
+        /// 远程服务器地址
+        #[arg(long)]
+        host: String,
+
+        /// SSH 端口
+        #[arg(long, default_value = "22")]
+        ssh_port: u16,
+
+        /// SSH 用户名
+        #[arg(long, short = 'u', default_value = "root")]
+        user: String,
+
+        /// SSH 私钥路径
+        #[arg(long, short = 'k')]
+        key: Option<String>,
+
+        /// SSH 密码 (不推荐，建议使用密钥)
+        #[arg(long)]
+        password: Option<String>,
+
+        /// 信令服务器端口
+        #[arg(long, short = 'p', default_value = "8443")]
+        port: u16,
+
+        /// 启用 TLS (需要 --domain 和 --email)
+        #[arg(long)]
+        tls: bool,
+
+        /// TLS 域名
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Let's Encrypt 邮箱
+        #[arg(long)]
+        email: Option<String>,
+
+        /// API Key (不指定则自动生成)
+        #[arg(long)]
+        api_key: Option<String>,
+
+        /// 本地信令服务器二进制文件路径
+        #[arg(long)]
+        binary: Option<String>,
+    },
+
+    /// 检查远程信令服务器状态
+    Status {
+        /// 远程服务器地址
+        #[arg(long)]
+        host: String,
+
+        /// SSH 端口
+        #[arg(long, default_value = "22")]
+        ssh_port: u16,
+
+        /// SSH 用户名
+        #[arg(long, short = 'u', default_value = "root")]
+        user: String,
+
+        /// SSH 私钥路径
+        #[arg(long, short = 'k')]
+        key: Option<String>,
+
+        /// SSH 密码
+        #[arg(long)]
+        password: Option<String>,
+    },
+
+    /// 卸载远程信令服务器
+    Uninstall {
+        /// 远程服务器地址
+        #[arg(long)]
+        host: String,
+
+        /// SSH 端口
+        #[arg(long, default_value = "22")]
+        ssh_port: u16,
+
+        /// SSH 用户名
+        #[arg(long, short = 'u', default_value = "root")]
+        user: String,
+
+        /// SSH 私钥路径
+        #[arg(long, short = 'k')]
+        key: Option<String>,
+
+        /// SSH 密码
+        #[arg(long)]
+        password: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -182,6 +291,12 @@ async fn main() -> Result<()> {
                 // 设备发现模式
                 init_logging(args.verbose.unwrap_or(1));
                 run_discover_mode().await
+            }
+            #[cfg(feature = "deploy")]
+            Commands::Deploy { action } => {
+                // 部署命令
+                init_logging(args.verbose.unwrap_or(1));
+                handle_deploy_command(action).await
             }
         };
     }
@@ -635,5 +750,150 @@ async fn run_discover_mode() -> Result<()> {
     println!("\n共发现 {} 个设备", peers.len());
 
     discovery.stop()?;
+    Ok(())
+}
+
+// ============================================================================
+// Deploy 模式相关函数 (需要 --features deploy)
+// ============================================================================
+
+/// 处理部署命令
+#[cfg(feature = "deploy")]
+async fn handle_deploy_command(action: DeployCommands) -> Result<()> {
+    use deploy::{SignalingDeployer, SignalingDeployment};
+    use std::path::PathBuf;
+
+    match action {
+        DeployCommands::Signaling {
+            host,
+            ssh_port,
+            user,
+            key,
+            password,
+            port,
+            tls,
+            domain,
+            email,
+            api_key,
+            binary,
+        } => {
+            info!("开始部署信令服务器到 {}...", host);
+
+            // 验证 TLS 参数
+            if tls && (domain.is_none() || email.is_none()) {
+                anyhow::bail!("启用 TLS 需要同时提供 --domain 和 --email 参数");
+            }
+
+            // 如果没有提供密码且没有提供密钥，尝试交互式获取密码
+            let password = if password.is_none() && key.is_none() {
+                // 检查是否能自动检测到 SSH 密钥
+                if deploy::SshConnection::detect_ssh_key().is_none() {
+                    // 没有可用的密钥，尝试获取密码
+                    println!("未找到 SSH 密钥，请输入密码:");
+                    match rpassword::read_password() {
+                        Ok(pwd) if !pwd.is_empty() => Some(pwd),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            } else {
+                password
+            };
+
+            let config = SignalingDeployment {
+                host: host.clone(),
+                ssh_port,
+                ssh_user: user,
+                ssh_key_path: key.map(PathBuf::from),
+                ssh_password: password,
+                signaling_port: port,
+                enable_tls: tls,
+                domain: domain.clone(),
+                letsencrypt_email: email,
+                api_key,
+                binary_path: binary.map(PathBuf::from),
+            };
+
+            let deployer = SignalingDeployer::new(config)?;
+            let result = deployer.deploy()?;
+
+            // 打印结果
+            println!();
+            println!("========================================");
+            println!("  部署成功!");
+            println!("========================================");
+            println!();
+            println!("信令服务器地址: {}", result.server_url);
+            if let Some(ref api_key) = result.api_key {
+                println!("API Key: {}", api_key);
+            }
+            println!();
+            println!("使用方法:");
+            println!("  sscontrol host --signaling-url {}", result.server_url);
+            println!();
+            if result.tls_enabled {
+                println!("TLS 已启用，证书将自动续期");
+            }
+        }
+
+        DeployCommands::Status {
+            host,
+            ssh_port,
+            user,
+            key,
+            password,
+        } => {
+            info!("检查信令服务器状态...");
+
+            let config = SignalingDeployment {
+                host: host.clone(),
+                ssh_port,
+                ssh_user: user,
+                ssh_key_path: key.map(PathBuf::from),
+                ssh_password: password,
+                ..Default::default()
+            };
+
+            let deployer = SignalingDeployer::new(config)?;
+            let status = deployer.status()?;
+
+            println!("服务状态:\n{}", status);
+        }
+
+        DeployCommands::Uninstall {
+            host,
+            ssh_port,
+            user,
+            key,
+            password,
+        } => {
+            info!("卸载信令服务器...");
+
+            // 确认操作
+            println!("确定要从 {} 卸载信令服务器吗? [y/N] ", host);
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+            if !input.trim().eq_ignore_ascii_case("y") {
+                println!("已取消");
+                return Ok(());
+            }
+
+            let config = SignalingDeployment {
+                host: host.clone(),
+                ssh_port,
+                ssh_user: user,
+                ssh_key_path: key.map(PathBuf::from),
+                ssh_password: password,
+                ..Default::default()
+            };
+
+            let deployer = SignalingDeployer::new(config)?;
+            deployer.uninstall()?;
+
+            println!("信令服务器已从 {} 卸载", host);
+        }
+    }
+
     Ok(())
 }

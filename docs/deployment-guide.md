@@ -12,6 +12,7 @@
 - [第四章：版本发布](#第四章版本发布)
 - [第五章：Docker 部署](#第五章docker-部署)
 - [第六章：原生部署](#第六章原生部署)
+- [第六章A：自动化部署](#第六章a自动化部署)
 - [第七章：监控配置](#第七章监控配置)
 - [第八章：运维维护](#第八章运维维护)
 
@@ -584,6 +585,201 @@ Storage=persistent
 SystemMaxUse=1G
 
 sudo systemctl restart systemd-journald
+```
+
+---
+
+## 第六章A：自动化部署
+
+### 6A.1 概述
+
+sscontrol 提供内置的自动化部署功能，可通过 SSH 将信令服务器一键部署到远程 Linux 服务器。
+
+**功能特性**:
+- SSH Agent / 公钥 / 密码认证
+- 自动配置 systemd 服务
+- 自动配置防火墙（UFW/firewalld/iptables）
+- 可选 TLS 支持（Let's Encrypt）
+- 自动生成 API Key
+
+### 6A.2 编译部署工具
+
+```bash
+# 启用 deploy 功能编译
+cargo build --release --features deploy
+
+# 验证编译结果
+./target/release/sscontrol deploy --help
+```
+
+### 6A.3 部署信令服务器
+
+#### 基础部署（无 TLS）
+
+```bash
+# 使用 SSH 密钥部署（推荐）
+sscontrol deploy signaling \
+  --host 203.0.113.10 \
+  --user root \
+  --port 8443
+
+# 使用指定密钥
+sscontrol deploy signaling \
+  --host 203.0.113.10 \
+  --user root \
+  --key ~/.ssh/id_ed25519 \
+  --port 8443
+
+# 使用密码（不推荐）
+sscontrol deploy signaling \
+  --host 203.0.113.10 \
+  --user root \
+  --password "your-password" \
+  --port 8443
+```
+
+#### 启用 TLS 部署
+
+```bash
+# 使用 Let's Encrypt 自动申请证书
+sscontrol deploy signaling \
+  --host 203.0.113.10 \
+  --user root \
+  --port 8443 \
+  --tls \
+  --domain signaling.example.com \
+  --email admin@example.com
+```
+
+#### 指定 API Key
+
+```bash
+# 使用自定义 API Key
+sscontrol deploy signaling \
+  --host 203.0.113.10 \
+  --user root \
+  --port 8443 \
+  --api-key "your-custom-api-key"
+```
+
+### 6A.4 部署输出
+
+部署成功后会显示：
+
+```
+========================================
+  部署成功!
+========================================
+
+信令服务器地址: wss://signaling.example.com:8443
+API Key: a1b2c3d4e5f6...
+
+使用方法:
+  sscontrol host --signaling-url wss://signaling.example.com:8443
+
+TLS 已启用，证书将自动续期
+```
+
+### 6A.5 检查部署状态
+
+```bash
+# 检查服务状态
+sscontrol deploy status \
+  --host 203.0.113.10 \
+  --user root
+
+# 输出示例:
+# ● sscontrol-signaling.service - SSControl Signaling Server
+#      Loaded: loaded (/etc/systemd/system/sscontrol-signaling.service; enabled)
+#      Active: active (running) since ...
+```
+
+### 6A.6 卸载信令服务器
+
+```bash
+# 卸载服务
+sscontrol deploy uninstall \
+  --host 203.0.113.10 \
+  --user root
+```
+
+### 6A.7 部署架构
+
+部署完成后，远程服务器的目录结构：
+
+```
+/opt/sscontrol-signaling/
+├── bin/
+│   └── sscontrol-signaling    # 信令服务器二进制
+└── config/
+
+/etc/sscontrol-signaling/
+├── config.toml                 # 配置文件
+├── cert.pem                    # TLS 证书（如启用）
+└── key.pem                     # TLS 私钥（如启用）
+
+/etc/systemd/system/
+└── sscontrol-signaling.service # systemd 服务
+
+/var/log/sscontrol-signaling/   # 日志目录
+```
+
+### 6A.8 手动管理
+
+```bash
+# SSH 登录后手动管理
+ssh root@203.0.113.10
+
+# 查看服务状态
+systemctl status sscontrol-signaling
+
+# 查看日志
+journalctl -u sscontrol-signaling -f
+
+# 重启服务
+systemctl restart sscontrol-signaling
+
+# 停止服务
+systemctl stop sscontrol-signaling
+```
+
+### 6A.9 故障排查
+
+**部署失败：架构不匹配**
+
+```bash
+# 错误: 架构不匹配: 本地 aarch64 != 远程 x86_64
+
+# 解决方案: 使用交叉编译
+cargo install cross
+cross build --release --target x86_64-unknown-linux-gnu --features deploy
+
+# 或指定预编译的二进制
+sscontrol deploy signaling \
+  --host 203.0.113.10 \
+  --binary ./target/x86_64-unknown-linux-gnu/release/sscontrol-signaling
+```
+
+**部署失败：权限不足**
+
+```bash
+# 使用 root 用户或有 sudo 权限的用户
+sscontrol deploy signaling --host 203.0.113.10 --user root
+```
+
+**TLS 证书申请失败**
+
+```bash
+# 确保:
+# 1. 域名已正确解析到服务器 IP
+# 2. 服务器 80 端口开放（Let's Encrypt 验证）
+# 3. 邮箱地址有效
+
+# 检查 DNS
+dig signaling.example.com
+
+# 检查端口
+nc -zv 203.0.113.10 80
 ```
 
 ---

@@ -1,55 +1,31 @@
 # sscontrol
 
-> A headless remote desktop application built with Rust, featuring WebRTC P2P communication, cross-platform support, and system service integration.
+A headless remote desktop application built with Rust, featuring WebRTC P2P communication, cross-platform support, and system service integration.
 
-中文文档: [README_ZH.md](README_ZH.md)
+[中文文档](README_ZH.md)
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)]()
 
-## Overview
-
-sscontrol is a lightweight, headless remote desktop solution that enables screen sharing and remote control through P2P connections. It runs as a background service and supports:
-
-- Screen capture at configurable frame rates
-- Remote input control (mouse & keyboard)
-- WebRTC P2P communication with low latency
-- End-to-end encryption with TLS support
-- Cross-platform support (macOS, Windows, Linux)
-- System service integration (LaunchAgent, systemd, Windows Service)
-
-## Project Status
-
-| Phase | Status | Description |
-| ------- | -------- | ------------- |
-| Phase 0 | ✅ Complete | Planning & Design |
-| Phase 1 | ✅ Complete | MVP Screen Capture |
-| Phase 2 | ✅ Complete | Mouse Control |
-| Phase 3 | ✅ Complete | WebRTC Optimization |
-| Phase 4 | ✅ Complete | Security Features |
-| Phase 5 | ✅ Complete | System Service Packaging |
-
 ## Features
 
-### Core Features
+- Screen Capture - High-performance platform-native screen capture
+- Remote Input - Mouse movement, clicks, scroll, and keyboard input
+- WebRTC P2P - Low-latency peer-to-peer video streaming
+- Security - API key authentication, HMAC-SHA256 tokens, TLS/DTLS encryption
+- Service Mode - Run as a background system service (LaunchAgent/systemd/Windows Service)
+- Device Discovery - Automatic LAN device discovery via mDNS
+- Connection Codes - Quick pairing with 6-digit codes
+- Signaling Server - Self-hosted or Cloudflare Worker-based signaling
 
-- 📺 Screen Capture - High-performance screen capture using platform APIs
-  - macOS: CGDisplay API
-  - Windows: GDI BitBlt
-  - Linux: X11 (planned)
-- 🖱️ Remote Input - Mouse and keyboard control simulation
-- 🌐 WebRTC - P2P video streaming with WebRTC data channels
-- 🔒 Security - API key authentication, HMAC-SHA256 tokens, TLS support
-- 📦 Service Mode - Run as a system service on all platforms
+## Platform Support
 
-### Technical Highlights
-
-- Normalized coordinates (0.0-1.0) for DPI-independent input
-- Automatic reconnection on network failure
-- Configurable frame rate and resolution
-- H.264 encoding support (optional feature)
-- Comprehensive logging with tracing
+| Platform | Screen Capture | Input Simulation | System Service |
+|----------|----------------|------------------|----------------|
+| macOS    | CGDisplay API  | CGEvent          | LaunchAgent    |
+| Windows  | DXGI / GDI     | SendInput        | Windows Service|
+| Linux    | Planned        | Planned          | systemd        |
 
 ## Quick Start
 
@@ -57,17 +33,15 @@ sscontrol is a lightweight, headless remote desktop solution that enables screen
 
 - Rust 1.70 or later
 - Platform-specific requirements:
-  - macOS: Screen recording permission (System Settings → Privacy & Security → Screen Recording)
+  - macOS: Screen Recording + Accessibility permissions
   - Windows: Administrator privileges for service installation
   - Linux: systemd for service management
 
-### Installation
-
-#### From Source
+### Build from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourname/sscontrol.git
+git clone https://github.com/iannil/sscontrol.git
 cd sscontrol
 
 # Build release version
@@ -77,7 +51,7 @@ cargo build --release
 sudo cp target/release/sscontrol /usr/local/bin/
 ```
 
-#### Using Installation Scripts
+### Installation Scripts
 
 macOS:
 
@@ -97,9 +71,9 @@ Windows (PowerShell as Administrator):
 .\scripts\install_windows.ps1
 ```
 
-### Usage
+## Usage
 
-#### Basic Usage
+### Basic Commands
 
 ```bash
 # Run with default configuration
@@ -115,66 +89,62 @@ sscontrol --device-id my-device --fps 30
 sscontrol -vv
 ```
 
-#### Service Management
+### Service Management
 
 ```bash
 # Install as a system service
 sscontrol service install
 
-# Start the service
+# Start/stop/status
 sscontrol service start
-
-# Check service status
-sscontrol service status
-
-# Stop the service
 sscontrol service stop
+sscontrol service status
 
 # Uninstall the service
 sscontrol service uninstall
 ```
 
-#### Service Mode (Foreground)
+### Deploy Signaling Server
 
 ```bash
-# Run in service mode (for systemd/launchd integration)
-sscontrol run
+# Deploy to a remote server via SSH
+sscontrol deploy signaling --host 1.2.3.4 --user root --port 8443
+
+# With TLS (Let's Encrypt)
+sscontrol deploy signaling --host 1.2.3.4 --tls --domain example.com
+
+# Check status / Uninstall
+sscontrol deploy status --host 1.2.3.4
+sscontrol deploy uninstall --host 1.2.3.4
 ```
 
 ## Configuration
 
-The default configuration file is located at `~/.config/sscontrol/config.toml`.
-
-### Example Configuration
+Default config location: `~/.config/sscontrol/config.toml`
 
 ```toml
 [server]
-# WebSocket server address
 url = "ws://localhost:8080"
 
-# Device ID (auto-generated if empty)
-# device_id = ""
-
 [capture]
-# Target frame rate
 fps = 30
 
-# Screen index (0 = primary display)
-# screen_index = 0
-
 [security]
-# API Key (recommended: use environment variable SSCONTROL_API_KEY)
+# Use environment variable SSCONTROL_API_KEY instead
 # api_key = "your-secret-api-key"
-
-# TLS certificate paths (recommended: use environment variables)
-# tls_cert = "/path/to/cert.pem"
-# tls_key = "/path/to/key.pem"
-
-# Require TLS for connections
 require_tls = false
-
-# Token TTL in seconds (default: 300)
 token_ttl = 300
+
+[webrtc]
+stun_servers = ["stun:stun.l.google.com:19302"]
+ice_transport_policy = "all"
+
+[discovery]
+enabled = true
+connection_code_ttl = 300
+
+[signaling]
+provider = "cloudflare"
 ```
 
 ### Environment Variables
@@ -184,139 +154,130 @@ token_ttl = 300
 | `SSCONTROL_API_KEY` | API key for authentication |
 | `SSCONTROL_TLS_CERT` | Path to TLS certificate file |
 | `SSCONTROL_TLS_KEY` | Path to TLS private key file |
+| `RUST_LOG` | Log level (e.g., `info,sscontrol=debug`) |
 
 ## Architecture
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Host Agent                               │
+│                         Host Agent                              │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
-│  │  Capture │───→│  Encoder  │───→│  Network │───→│  WebRTC  │  │
-│  │ (macOS/  │    │ (H.264/  │    │(WebSocket│    │ (P2P)    │  │
+│  │  Capture │───→│  Encoder │───→│  Network │───→│  WebRTC  │  │
+│  │ (macOS/  │    │ (H.264/  │    │(WebSocket│    │  (P2P)   │  │
 │  │ Windows) │    │  Simple) │    │  Client) │    │          │  │
 │  └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
-│       ↑                                     ↓                    │
-│       │                            ┌──────────────┐            │
-│       │                            │ Input Handler│            │
-│       │                            │  (Mouse/Key) │            │
-│       │                            └──────────────┘            │
+│       ↑                                               ↓        │
+│       │                                    ┌──────────────┐    │
+│       │                                    │ Input Handler│    │
+│       │                                    │ (Mouse/Key)  │    │
+│       │                                    └──────────────┘    │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                   Security Layer                        │   │
-│  │  (API Key Auth / HMAC Tokens / TLS)                     │   │
+│  │                    Security Layer                       │   │
+│  │         (API Key Auth / HMAC Tokens / TLS)              │   │
 │  └─────────────────────────────────────────────────────────┘   │
-│                                                                   │
-└───────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Signaling Server                            │
-│                  (WebSocket + WebRTC ICE)                        │
+│                      Signaling Server                           │
+│            (WebSocket + WebRTC ICE / Cloudflare Worker)         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Building with Features
+## Feature Flags
 
-### Default Features
+| Feature | Description | Dependencies |
+| --------- | ------------- | -------------- |
+| `h264` | H.264 video encoding | FFmpeg |
+| `webrtc` | WebRTC P2P support | webrtc-rs |
+| `security` | TLS and authentication | rustls |
+| `service` | System service integration | (default) |
+| `discovery` | mDNS device discovery | mdns-sd |
+| `deploy` | Remote signaling server deployment | ssh2 |
+
+### Build Examples
 
 ```bash
+# Default build
 cargo build --release
-```
 
-### With H.264 Encoding
-
-```bash
+# With H.264 encoding (requires FFmpeg)
 cargo build --release --features h264
-```
 
-### With WebRTC Support
-
-```bash
-cargo build --release --features webrtc
-```
-
-### With Security Features
-
-```bash
-cargo build --release --features security
-```
-
-### All Features
-
-```bash
-cargo build --release --features "h264,webrtc,security,service"
+# All features
+cargo build --release --features "h264,webrtc,security,service,discovery,deploy"
 ```
 
 ## Examples
 
-The project includes several example programs:
-
-| Example | Description | Command |
-| --------- | ------------- | --------- |
-| `test_server` | WebSocket test server | `cargo run --example test_server` |
-| `test_capture` | Screen capture test | `cargo run --example test_capture` |
-| `test_encoder` | Encoder test | `cargo run --example test_encoder` |
-| `benchmark` | Performance benchmark | `cargo run --example benchmark` |
-| `signaling_server` | WebRTC signaling server | `cargo run --example signaling_server` |
-| `webrtc_client` | WebRTC client example | `cargo run --example webrtc_client --features webrtc` |
-| `secure_server` | Secure server with auth | `cargo run --example secure_server --features security` |
-
-## Testing
-
 ```bash
-# Run all tests
-cargo test
+# WebSocket test server
+cargo run --example test_server
 
-# Run tests with output
-cargo test -- --nocapture
+# Screen capture test
+cargo run --example test_capture
 
-# Run specific test module
-cargo test capture::tests
+# End-to-end latency test
+cargo run --example latency_test
+
+# WebRTC demo (requires webrtc feature)
+cargo run --example webrtc_example --features webrtc
+
+# Signaling server
+cargo run --example signaling_server
 ```
 
 ## Performance
 
-Tested on macOS, 4K resolution (3840×2160):
+Tested on macOS with 4K resolution (3840x2160):
 
 | Metric | Result |
 | -------- | -------- |
 | Average capture time | ~51 ms |
 | Average encode time | ~1.6 ms |
-| Maximum frame rate | ~19 FPS (unoptimized) |
+| Maximum frame rate | ~19 FPS (raw) |
 | Bandwidth (raw) | ~600 MB/s |
+| Bandwidth (H.264) | ~2-5 Mbps |
 
-> Note: H.264 encoding significantly reduces bandwidth requirements.
+## Project Structure
 
-## Tech Stack
-
-| Component | Technology |
-| ----------- | ------------ |
-| Language | Rust 2021 |
-| Runtime | Tokio (async) |
-| Network | tokio-tungstenite (WebSocket), webrtc-rs 0.12 |
-| Encoding | SimpleEncoder, H.264 (optional) |
-| Security | HMAC-SHA256, rustls (TLS) |
-| macOS APIs | CGDisplay, Core Graphics, CGEvent |
-| Windows APIs | GDI, SendInput, Windows Service |
+```text
+sscontrol/
+├── src/
+│   ├── main.rs              # Entry point
+│   ├── lib.rs               # Library entry
+│   ├── config.rs            # Configuration management
+│   ├── capture/             # Screen capture (macOS/Windows)
+│   ├── encoder/             # Video encoding (Simple/H.264)
+│   ├── input/               # Input simulation (Mouse/Keyboard)
+│   ├── network/             # WebSocket client
+│   ├── webrtc/              # WebRTC peer connection
+│   ├── security/            # Auth & TLS
+│   ├── service/             # System service integration
+│   └── deploy/              # Remote deployment
+├── examples/                # Example programs
+├── scripts/                 # Installation scripts
+├── cloudflare-worker/       # Cloudflare Worker signaling server
+└── docs/                    # Documentation
+```
 
 ## Documentation
 
 | Document | Description |
 | ---------- | ------------- |
-| [Architecture](./docs/architecture/overview.md) | System architecture and module design |
-| [Setup Guide](./docs/implementation/setup.md) | Development environment setup |
-| [Roadmap](./docs/roadmap.md) | Development roadmap |
-| [Progress](./docs/progress.md) | Detailed project progress |
-| [FAQ](./docs/troubleshooting/common-issues.md) | Troubleshooting guide |
+| [Architecture](./docs/architecture/overview.md) | System design |
+| [Deployment Guide](./docs/deployment-guide.md) | Deployment instructions |
+| [Troubleshooting](./docs/troubleshooting/common-issues.md) | Common issues |
+| [Operations Runbook](./docs/operations/runbook.md) | Operations guide |
 
 ## Known Issues
 
-| ID | Issue | Priority |
-| ---- | ------- | ---------- |
-| T001 | H.264 encoder not enabled by default | P1 |
-| T002 | macOS scroll wheel support limited | P3 |
-| T003 | Windows capture uses GDI (not Desktop Duplication API) | P3 |
+| Issue | Priority | Status |
+| ------- | ---------- | -------- |
+| H.264 encoder requires FFmpeg | P2 | Documented |
+| macOS scroll wheel support limited | P3 | Planned |
+| Linux screen capture not implemented | P2 | Planned |
 
 ## Contributing
 
@@ -328,7 +289,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## Development
+### Development
 
 ```bash
 # Format code
@@ -337,8 +298,11 @@ cargo fmt
 # Run linter
 cargo clippy
 
-# Build documentation
-cargo doc --open
+# Run tests
+cargo test
+
+# Run all checks before commit
+cargo fmt && cargo clippy && cargo test
 ```
 
 ## License
@@ -347,6 +311,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Built with [Rust](https://www.rust-lang.org/)
-- WebRTC implementation by [webrtc-rs](https://github.com/webrtc-rs/webrtc)
-- Async runtime by [Tokio](https://tokio.rs/)
+- [Rust](https://www.rust-lang.org/) - Programming language
+- [webrtc-rs](https://github.com/webrtc-rs/webrtc) - WebRTC implementation
+- [Tokio](https://tokio.rs/) - Async runtime
+- [FFmpeg](https://ffmpeg.org/) - Video encoding (optional)

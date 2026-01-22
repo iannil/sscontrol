@@ -19,3 +19,6 @@ pub mod signaling;
 
 #[cfg(feature = "discovery")]
 pub mod connection;
+
+#[cfg(feature = "deploy")]
+pub mod deploy;

@@ -1,12 +1,12 @@
 # 开发路线图
 
-**最后更新**: 2026-01-21
+**最后更新**: 2026-01-22
 
 ## 项目概述
 
 sscontrol 是一个基于 Rust 的无界面远程桌面应用，采用 WebRTC 实现 P2P 通信。
 
-**当前状态**: 所有阶段已完成，项目进入维护和优化阶段
+**当前状态**: 所有核心阶段已完成，项目进入维护和优化阶段
 
 ---
 
@@ -130,17 +130,90 @@ sscontrol 是一个基于 Rust 的无界面远程桌面应用，采用 WebRTC �
 
 ---
 
+### Phase 6: 稳定性与性能优化 ✅
+
+**目标**: 提升代码稳定性和运行时性能
+
+**状态**: 已完成
+
+**核心功能**:
+- [x] 代码稳定性改进
+  - [x] 移除 panic/expect/unwrap
+  - [x] 改用 Result 返回错误
+  - [x] 优雅错误处理
+- [x] WebRTC 配置支持
+  - [x] STUN/TURN 服务器配置
+  - [x] ICE 传输策略
+  - [x] CLI 参数扩展
+- [x] Windows DXGI 捕获
+  - [x] Desktop Duplication API
+  - [x] GDI fallback 支持
+- [x] 性能评估工具
+  - [x] latency_test 延迟测试
+  - [x] 统计报告和直方图
+
+---
+
+### Phase 7: H.264 编码器修复 ✅
+
+**目标**: 修复 H.264 编码器编译问题
+
+**状态**: 已完成
+
+**核心功能**:
+- [x] H.264 编码器修复
+  - [x] 解决借用冲突
+  - [x] 重构 encode() 方法
+  - [x] 验证 libx264 编码
+- [x] 代码质量提升
+  - [x] 移除残留 panic 调用
+  - [x] 改用 unreachable!() 宏
+
+---
+
+### Phase 8: 信令服务器自动部署 ✅
+
+**目标**: 实现一键部署信令服务器到 Linux 服务器
+
+**状态**: 已完成
+
+**核心功能**:
+- [x] SSH 连接管理 (`src/deploy/ssh.rs`)
+  - [x] SSH Agent 支持
+  - [x] 公钥认证
+  - [x] 密码认证回退
+  - [x] 文件上传
+- [x] 部署逻辑 (`src/deploy/signaling_deploy.rs`)
+  - [x] 系统要求检查
+  - [x] 目录结构创建
+  - [x] 二进制上传
+  - [x] systemd 服务配置
+  - [x] 防火墙配置
+  - [x] 部署验证
+- [x] TLS 支持
+  - [x] Let's Encrypt 集成
+  - [x] certbot 自动续期
+- [x] 独立信令服务器 (`src/bin/signaling_server.rs`)
+  - [x] CLI 参数支持
+  - [x] 健康检查端点
+  - [x] 优雅关闭
+- [x] CLI 命令
+  - [x] `deploy signaling` - 部署
+  - [x] `deploy status` - 状态检查
+  - [x] `deploy uninstall` - 卸载
+
+---
+
 ## 未来计划
 
 ### 潜在改进方向
 
 | 优先级 | 功能 | 说明 |
 |--------|------|------|
-| P1 | H.264 编码器优化 | 当前 SimpleEncoder 传输原始数据，带宽需求高 |
-| P2 | Windows Desktop Duplication API | 替换 GDI 以获得更好性能 |
-| P3 | macOS 滚轮事件完善 | 当前实现支持有限 |
-| P4 | Linux 平台支持 | 目前仅支持 macOS 和 Windows |
-| P5 | 音频传输 | 添加音频捕获和传输功能 |
+| P1 | Linux 平台屏幕捕获 | 添加 X11/Wayland 支持 |
+| P2 | 音频传输 | 添加音频捕获和传输功能 |
+| P3 | Web 客户端 | 浏览器端控制客户端 |
+| P4 | macOS 滚轮事件完善 | 当前实现支持有限 |
 
 ---
 
@@ -148,16 +221,28 @@ sscontrol 是一个基于 Rust 的无界面远程桌面应用，采用 WebRTC �
 
 | ID | 描述 | 优先级 | 状态 |
 |----|------|--------|------|
-| T001 | H.264 编码器未默认启用 | P1 | 待优化 |
-| T002 | 端到端延迟性能测试 | P2 | 待测试 |
-| T003 | macOS 滚轮事件完整实现 | P3 | 待实现 |
-| T004 | Windows Desktop Duplication API | P3 | 待实现 |
+| T001 | H.264 编码器修复 | P1 | ✅ 已完成 |
+| T002 | Windows Desktop Duplication API | P3 | ✅ 已完成 |
+| T003 | 端到端延迟性能测试 | P2 | ✅ 已完成 |
+| T004 | macOS 滚轮事件完整实现 | P3 | 待实现 |
+| T005 | Linux 屏幕捕获支持 | P2 | 待实现 |
 
 ---
 
 ## 变更日志
 
+### 2026-01-22
+- 完成 Phase 8：信令服务器自动部署功能
+- 新增 `src/deploy/` 模块
+- 新增 `src/bin/signaling_server.rs` 独立二进制
+- 更新文档，归档过时内容
+
 ### 2026-01-21
-- 完成所有 5 个开发阶段
-- 更新路线图状态为全部完成
+- 完成 Phase 6 和 Phase 7
+- H.264 编码器修复
+- Windows DXGI 捕获实现
+- 代码稳定性优化
+
+### 2026-01-20
+- 完成 Phase 0-5 所有开发阶段
 - 归档过时的设计文档
