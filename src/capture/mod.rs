@@ -33,8 +33,8 @@ impl Frame {
         use std::time::{SystemTime, UNIX_EPOCH};
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
     }
 
     /// 从原始数据创建帧
@@ -76,7 +76,17 @@ pub fn create_capturer(screen_index: Option<u32>) -> Result<Box<dyn Capturer>> {
 
     #[cfg(target_os = "windows")]
     {
-        Ok(Box::new(windows::WindowsCapturer::new(screen_index)?))
+        // 尝试使用 DXGI (性能更好)，失败则 fallback 到 GDI
+        match windows_dxgi::DXGICapturer::new(screen_index) {
+            Ok(capturer) => {
+                tracing::info!("使用 DXGI Desktop Duplication 捕获");
+                Ok(Box::new(capturer))
+            }
+            Err(e) => {
+                tracing::warn!("DXGI 不可用 ({}), 使用 GDI fallback", e);
+                Ok(Box::new(windows::WindowsCapturer::new(screen_index)?))
+            }
+        }
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -89,9 +99,13 @@ pub fn create_capturer(screen_index: Option<u32>) -> Result<Box<dyn Capturer>> {
 #[cfg(target_os = "macos")]
 pub mod macos;
 
-// Windows 实现 (占位)
+// Windows 实现 (GDI fallback)
 #[cfg(target_os = "windows")]
 pub mod windows;
+
+// Windows DXGI 实现 (优先使用)
+#[cfg(target_os = "windows")]
+pub mod windows_dxgi;
 
 #[cfg(test)]
 mod tests {

@@ -61,6 +61,13 @@ pub trait InputSimulator: Send {
     /// 鼠标滚轮
     fn mouse_wheel(&mut self, delta_x: i32, delta_y: i32) -> Result<()>;
 
+    /// 键盘事件
+    ///
+    /// # 参数
+    /// * `key` - 键名称 (如 "a", "Enter", "Shift", "Control")
+    /// * `pressed` - true 表示按下，false 表示释放
+    fn key_event(&mut self, key: &str, pressed: bool) -> Result<()>;
+
     /// 处理输入事件
     fn handle_event(&mut self, event: &InputEvent) -> Result<()> {
         match event {
@@ -77,10 +84,8 @@ pub trait InputSimulator: Send {
             InputEvent::MouseWheel { delta_x, delta_y } => {
                 self.mouse_wheel(*delta_x, *delta_y)
             }
-            InputEvent::KeyEvent { .. } => {
-                // 暂不支持键盘事件
-                tracing::warn!("键盘事件暂未实现");
-                Ok(())
+            InputEvent::KeyEvent { key, pressed } => {
+                self.key_event(key, *pressed)
             }
         }
     }

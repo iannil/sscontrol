@@ -91,6 +91,7 @@ impl MacOSLaunchAgent {
     }
 
     /// 获取当前用户 UID
+    #[allow(dead_code)]
     fn get_user_uid(&self) -> Result<String> {
         let output = Command::new("id")
             .arg("-u")
@@ -119,7 +120,9 @@ impl super::ServiceController for MacOSLaunchAgent {
         println!("plist 文件已创建: {}", self.plist_path.display());
 
         // 加载服务
-        self.launchctl(&["load", self.plist_path.to_str().unwrap()])?;
+        let path_str = self.plist_path.to_str()
+            .ok_or_else(|| anyhow!("plist 路径包含非 UTF-8 字符"))?;
+        self.launchctl(&["load", path_str])?;
         println!("服务已加载");
 
         Ok(())
@@ -128,7 +131,9 @@ impl super::ServiceController for MacOSLaunchAgent {
     fn uninstall(&self) -> Result<()> {
         // 先尝试卸载服务
         if self.is_installed() {
-            let _ = self.launchctl(&["unload", self.plist_path.to_str().unwrap()]);
+            if let Some(path_str) = self.plist_path.to_str() {
+                let _ = self.launchctl(&["unload", path_str]);
+            }
         }
 
         // 删除 plist 文件

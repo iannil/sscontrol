@@ -296,7 +296,7 @@ mod tests {
             SignalMessage::Join { room_id } => {
                 assert_eq!(room_id, "test_room");
             }
-            _ => panic!("解析失败"),
+            _ => unreachable!("解析结果应为 Join 变体"),
         }
     }
 
@@ -317,7 +317,7 @@ mod tests {
                 assert_eq!(to, "peer2");
                 assert!(sdp.starts_with("v=0"));
             }
-            _ => panic!("解析失败"),
+            _ => unreachable!("解析结果应为 Offer 变体"),
         }
     }
 }

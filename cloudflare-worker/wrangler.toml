@@ -1,0 +1,19 @@
+name = "sscontrol-signaling"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# KV 命名空间 - 用于存储会话数据
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "your-kv-namespace-id"  # 部署前需要创建并替换
+
+# 开发环境使用预览 KV
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "your-preview-kv-id"
+preview_id = "your-preview-kv-id"
+
+[vars]
+# 环境变量
+MAX_SESSION_TTL = "300"
+MAX_ATTEMPTS = "3"

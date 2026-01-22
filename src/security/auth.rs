@@ -92,8 +92,8 @@ impl ApiKeyAuth {
         // 检查时间戳是否在允许范围内
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+            .map(|d| d.as_secs())
+            .unwrap_or(0); // 系统时间异常时返回 0，验证将失败
 
         if timestamp > now || now.saturating_sub(timestamp) > max_age {
             return false;
@@ -107,8 +107,8 @@ impl ApiKeyAuth {
     pub fn current_timestamp() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
     }
 }
 

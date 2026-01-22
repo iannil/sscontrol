@@ -1,0 +1,16 @@
+{
+  "name": "sscontrol-signaling",
+  "version": "1.0.0",
+  "description": "SSControl signaling server for WebRTC connection",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.24.0"
+  }
+}

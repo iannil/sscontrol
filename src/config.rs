@@ -17,6 +17,9 @@ pub struct Config {
     /// 安全配置
     #[serde(default)]
     pub security: SecurityConfig,
+    /// WebRTC 配置
+    #[serde(default)]
+    pub webrtc: WebRTCConfig,
 }
 
 /// 服务器配置
@@ -77,6 +80,31 @@ pub struct SecurityConfig {
     pub token_ttl: u64,
 }
 
+/// WebRTC 配置
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WebRTCConfig {
+    /// STUN 服务器列表
+    #[serde(default = "default_stun_servers")]
+    pub stun_servers: Vec<String>,
+    /// TURN 服务器配置
+    #[serde(default)]
+    pub turn_servers: Vec<TurnServerConfig>,
+    /// ICE 传输策略: "all" 或 "relay"
+    #[serde(default = "default_ice_transport_policy")]
+    pub ice_transport_policy: String,
+}
+
+/// TURN 服务器配置
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TurnServerConfig {
+    /// TURN 服务器 URL (例如: turn:turn.example.com:3478)
+    pub url: String,
+    /// 用户名
+    pub username: String,
+    /// 密码
+    pub password: String,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -95,6 +123,7 @@ impl Default for Config {
                 file: None,
             },
             security: SecurityConfig::default(),
+            webrtc: WebRTCConfig::default(),
         }
     }
 }
@@ -140,6 +169,16 @@ impl Default for SecurityConfig {
     }
 }
 
+impl Default for WebRTCConfig {
+    fn default() -> Self {
+        WebRTCConfig {
+            stun_servers: default_stun_servers(),
+            turn_servers: Vec::new(),
+            ice_transport_policy: "all".to_string(),
+        }
+    }
+}
+
 fn default_device_id() -> String {
     Uuid::new_v4().to_string()
 }
@@ -154,6 +193,17 @@ fn default_log_level() -> String {
 
 fn default_token_ttl() -> u64 {
     300 // 5 分钟
+}
+
+fn default_stun_servers() -> Vec<String> {
+    vec![
+        "stun:stun.l.google.com:19302".to_string(),
+        "stun:stun1.l.google.com:19302".to_string(),
+    ]
+}
+
+fn default_ice_transport_policy() -> String {
+    "all".to_string()
 }
 
 impl Config {

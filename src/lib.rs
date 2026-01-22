@@ -10,3 +10,12 @@ pub mod network;
 pub mod security;
 pub mod service;
 pub mod webrtc;
+
+#[cfg(feature = "discovery")]
+pub mod discovery;
+
+#[cfg(feature = "discovery")]
+pub mod signaling;
+
+#[cfg(feature = "discovery")]
+pub mod connection;

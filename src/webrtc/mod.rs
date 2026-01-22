@@ -2,7 +2,7 @@
 //!
 //! 提供 WebRTC 连接管理和媒体传输功能
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 pub mod peer_connection;
@@ -152,6 +152,7 @@ pub trait PeerConnectionManager: Send {
 /// 这是一个简化实现，用于保持项目编译通过
 /// 完整实现需要集成 webrtc-rs 或其他 WebRTC 库
 pub struct SimplePeerConnection {
+    #[allow(dead_code)]
     config: WebRTCConfig,
     state: PeerConnectionState,
     ice_state: IceConnectionState,

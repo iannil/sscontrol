@@ -108,6 +108,22 @@ cargo build --release --features "webrtc,security,service"
 cargo build --release --example signaling_server --features security
 ```
 
+### 2.2.1 H.264 编码器说明
+
+启用 `h264` feature 后，编码器将使用 FFmpeg 进行 H.264 编码，相比原始数据传输可大幅降低带宽：
+
+| 模式 | 带宽需求 (4K) | 延迟 |
+|------|--------------|------|
+| SimpleEncoder (原始数据) | ~600 MB/s | 极低 |
+| H264Encoder (启用 h264) | ~2-5 Mbps | 低 |
+
+编码器已配置为低延迟模式：
+- **Preset**: ultrafast
+- **Tune**: zerolatency
+- **RC-Lookahead**: 0
+
+如需调整编码参数，可修改 `src/encoder/mod.rs` 中的配置。
+
 ### 2.3 运行测试
 
 ```bash

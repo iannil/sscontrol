@@ -152,12 +152,14 @@ impl VideoClient {
     }
 
     /// 获取输入事件接收器
-    pub async fn input_receiver(&self) -> InputEventReceiver {
+    ///
+    /// 注意：此方法只能调用一次，重复调用会返回错误
+    pub async fn take_input_receiver(&self) -> Result<InputEventReceiver> {
         self.input_receiver
             .lock()
             .await
             .take()
-            .expect("input_receiver already taken")
+            .ok_or_else(|| anyhow!("input_receiver 已被获取，此方法只能调用一次"))
     }
 
     /// 发送认证消息
@@ -166,12 +168,14 @@ impl VideoClient {
     #[cfg(feature = "security")]
     pub async fn send_auth(&self) -> Result<()> {
         if let Some(ref token_manager) = self.token_manager {
+            let api_key = self.config.api_key.as_ref()
+                .ok_or_else(|| anyhow!("token_manager 存在但 api_key 未配置"))?;
             let (timestamp, nonce, token) = token_manager.generate_auth_token(&self.device_id);
 
             let auth_msg = serde_json::json!({
                 "type": "auth",
                 "device_id": self.device_id,
-                "api_key": self.config.api_key.as_ref().unwrap(),
+                "api_key": api_key,
                 "timestamp": timestamp,
                 "nonce": nonce,
                 "token": token,
@@ -190,11 +194,13 @@ impl VideoClient {
     }
 
     /// 检查是否已配置认证
+    #[allow(dead_code)]
     pub fn has_auth(&self) -> bool {
         self.config.api_key.is_some()
     }
 
     /// 处理接收到的消息 (解析输入事件)
+    #[allow(dead_code)]
     fn handle_message(&self, text: String) {
         // 尝试解析为输入事件
         if let Ok(event) = serde_json::from_str::<crate::input::InputEvent>(&text) {
@@ -388,6 +394,7 @@ impl VideoClient {
     }
 
     /// 发送原始数据
+    #[allow(dead_code)]
     pub async fn send_raw(&self, data: Vec<u8>) -> Result<()> {
         let mut sender = self.sender.lock().await;
         let sender = sender.as_mut().ok_or_else(|| anyhow!("未连接"))?;
@@ -407,6 +414,7 @@ impl VideoClient {
     }
 
     /// 获取连接状态
+    #[allow(dead_code)]
     pub async fn state(&self) -> ConnectionState {
         *self.state.lock().await
     }

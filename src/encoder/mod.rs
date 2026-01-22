@@ -3,7 +3,7 @@
 //! 提供视频帧编码功能
 
 use crate::capture::Frame;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 /// 编码后的数据包
 #[derive(Debug, Clone)]
@@ -39,6 +39,7 @@ pub trait Encoder: Send {
 pub struct SimpleEncoder {
     width: u32,
     height: u32,
+    #[allow(dead_code)]
     fps: u32,
     frame_count: u64,
 }
@@ -125,9 +126,12 @@ impl Encoder for SimpleEncoder {
 pub struct H264Encoder {
     width: u32,
     height: u32,
+    #[allow(dead_code)]
     fps: u32,
+    #[allow(dead_code)]
     bitrate: u32,
     encoder: Option<ffmpeg::encoder::Video>,
+    sws_context: Option<ffmpeg::software::scaling::Context>,
     pts: i64,
     key_frame_interval: u64,
     frame_count: u64,
@@ -139,6 +143,9 @@ unsafe impl Send for H264Encoder {}
 
 #[cfg(feature = "h264")]
 use ffmpeg_next as ffmpeg;
+
+#[cfg(feature = "h264")]
+use anyhow::anyhow;
 
 #[cfg(feature = "h264")]
 impl H264Encoder {
@@ -166,7 +173,7 @@ impl H264Encoder {
             .ok_or_else(|| anyhow!("找不到 H.264 编码器"))?;
 
         // 配置编码器
-        let mut context = ffmpeg::codec::context::Context::new();
+        let mut context = ffmpeg::codec::context::Context::new_with_codec(encoder);
         let mut encoder_context = context.encoder().video()?;
 
         encoder_context.set_bit_rate((bitrate * 1000) as usize);
@@ -177,78 +184,90 @@ impl H264Encoder {
         encoder_context.set_gop(30);
         encoder_context.set_format(ffmpeg::format::Pixel::YUV420P);
 
-        // 打开编码器
-        let video_encoder = encoder_context.open()?;
+        // 设置低延迟编码参数
+        let mut opts = ffmpeg::Dictionary::new();
+        opts.set("preset", "ultrafast");
+        opts.set("tune", "zerolatency");
+        opts.set("rc-lookahead", "0");
 
-        tracing::info!("H.264 编码器创建成功");
+        // 打开编码器
+        let video_encoder = encoder_context.open_with(opts)?;
+
+        // 创建 SwsContext 用于 RGBA -> YUV420P 转换
+        let sws_context = ffmpeg::software::scaling::Context::get(
+            ffmpeg::format::Pixel::RGBA,
+            width,
+            height,
+            ffmpeg::format::Pixel::YUV420P,
+            width,
+            height,
+            ffmpeg::software::scaling::Flags::BILINEAR,
+        )?;
+
+        tracing::info!("H.264 编码器创建成功 (ultrafast/zerolatency)");
         Ok(H264Encoder {
             width,
             height,
             fps,
             bitrate,
             encoder: Some(video_encoder),
+            sws_context: Some(sws_context),
             pts: 0,
             key_frame_interval: 30,
             frame_count: 0,
         })
     }
 
-    /// 将 RGBA 帧转换为 YUV420P
-    fn rgba_to_yuv420p_frame(rgba: &[u8], width: u32, height: u32) -> ffmpeg::frame::Video {
-        let mut yuv_frame = ffmpeg::frame::Video::empty();
-        yuv_frame.set_format(ffmpeg::format::Pixel::YUV420P);
-        yuv_frame.set_width(width);
-        yuv_frame.set_height(height);
+    /// 将 RGBA 帧转换为 YUV420P (使用 SwsContext 硬件加速)
+    fn rgba_to_yuv420p_frame(&mut self, rgba: &[u8], width: u32, height: u32) -> Result<ffmpeg::frame::Video> {
+        // 创建源帧 (RGBA)
+        let mut src_frame = ffmpeg::frame::Video::empty();
+        src_frame.set_format(ffmpeg::format::Pixel::RGBA);
+        src_frame.set_width(width);
+        src_frame.set_height(height);
 
         unsafe {
-            yuv_frame.alloc(ffmpeg::format::Pixel::YUV420P, width, height);
+            src_frame.alloc(ffmpeg::format::Pixel::RGBA, width, height);
         }
 
-        let width_usize = width as usize;
-        let height_usize = height as usize;
-
-        // 先获取 stride 信息
-        let y_stride = yuv_frame.stride(0);
-        let u_stride = yuv_frame.stride(1);
-        let v_stride = yuv_frame.stride(2);
-
-        // 然后分别获取可变引用
-        for y in 0..height_usize {
-            for x in 0..width_usize {
-                let rgba_idx = (y * width_usize + x) * 4;
-                let r = rgba[rgba_idx] as f32;
-                let g = rgba[rgba_idx + 1] as f32;
-                let b = rgba[rgba_idx + 2] as f32;
-
-                // RGB to YUV conversion
-                let y_val = (0.299 * r + 0.587 * g + 0.114 * b) as u8;
-                let u_val = ((-0.169 * r - 0.331 * g + 0.5 * b) + 128.0) as u8;
-                let v_val = ((0.5 * r - 0.419 * g - 0.081 * b) + 128.0) as u8;
-
-                // 写入 Y 平面
-                yuv_frame.data_mut(0)[y * y_stride + x] = y_val;
-
-                if y % 2 == 0 && x % 2 == 0 {
-                    let uv_x = x / 2;
-                    let uv_y = y / 2;
-                    // 写入 UV 平面
-                    yuv_frame.data_mut(1)[uv_y * u_stride + uv_x] = u_val;
-                    yuv_frame.data_mut(2)[uv_y * v_stride + uv_x] = v_val;
-                }
-            }
+        // 复制 RGBA 数据到源帧
+        let src_stride = src_frame.stride(0);
+        let src_data = src_frame.data_mut(0);
+        for y in 0..height as usize {
+            let src_row_start = y * (width as usize * 4);
+            let dst_row_start = y * src_stride;
+            let row_len = width as usize * 4;
+            src_data[dst_row_start..dst_row_start + row_len]
+                .copy_from_slice(&rgba[src_row_start..src_row_start + row_len]);
         }
 
-        yuv_frame
+        // 创建目标帧 (YUV420P)
+        let mut dst_frame = ffmpeg::frame::Video::empty();
+        dst_frame.set_format(ffmpeg::format::Pixel::YUV420P);
+        dst_frame.set_width(width);
+        dst_frame.set_height(height);
+
+        unsafe {
+            dst_frame.alloc(ffmpeg::format::Pixel::YUV420P, width, height);
+        }
+
+        // 使用 SwsContext 进行转换
+        if let Some(ref mut sws) = self.sws_context {
+            sws.run(&src_frame, &mut dst_frame)?;
+        } else {
+            return Err(anyhow!("SwsContext 未初始化"));
+        }
+
+        Ok(dst_frame)
     }
 }
 
 #[cfg(feature = "h264")]
 impl Encoder for H264Encoder {
     fn encode(&mut self, frame: &Frame) -> Result<Option<EncodedPacket>> {
-        let encoder = self.encoder.as_mut().ok_or_else(|| anyhow!("编码器未初始化"))?;
-
-        // 转换为 YUV420P
-        let mut yuv_frame = Self::rgba_to_yuv420p_frame(&frame.data, frame.width, frame.height);
+        // 阶段 1: 转换为 YUV420P (使用 sws_context)
+        // 注意: 必须先完成此操作再获取 encoder 引用，避免借用冲突
+        let mut yuv_frame = self.rgba_to_yuv420p_frame(&frame.data, frame.width, frame.height)?;
 
         // 设置 PTS
         yuv_frame.set_pts(Some(self.pts));
@@ -258,7 +277,8 @@ impl Encoder for H264Encoder {
         // 判断是否为关键帧
         let is_key_frame = self.frame_count % self.key_frame_interval == 0;
 
-        // 编码
+        // 阶段 2: 编码 (使用 encoder)
+        let encoder = self.encoder.as_mut().ok_or_else(|| anyhow!("编码器未初始化"))?;
         encoder.send_frame(&yuv_frame)?;
 
         let mut packet = ffmpeg::packet::Packet::empty();
@@ -268,7 +288,7 @@ impl Encoder for H264Encoder {
                     let data = packet.data().unwrap_or(&[]).to_vec();
                     Ok(Some(EncodedPacket {
                         data,
-                        is_key_frame: is_key_frame,
+                        is_key_frame,
                         timestamp: frame.timestamp,
                         pts: self.pts,
                     }))

@@ -46,3 +46,49 @@ require_tls = false
 
 # Token 最大有效期（秒），默认 300 (5 分钟)
 token_ttl = 300
+
+[webrtc]
+# ===== WebRTC 配置 =====
+
+# STUN 服务器列表 (用于 NAT 穿透)
+stun_servers = [
+    "stun:stun.l.google.com:19302",
+    "stun:stun1.l.google.com:19302"
+]
+
+# ICE 传输策略: "all" (优先直连，然后中继) 或 "relay" (仅使用 TURN 中继)
+ice_transport_policy = "all"
+
+# TURN 服务器配置 (可选，用于 NAT 穿透失败时的中继)
+# 注意: TURN 凭证建议通过环境变量设置
+# [[webrtc.turn_servers]]
+# url = "turn:your-turn-server.com:3478"
+# username = "your-username"
+# password = "your-password"
+
+# 多个 TURN 服务器示例 (可配置多个作为备份)
+# [[webrtc.turn_servers]]
+# url = "turn:backup-turn.example.com:3478"
+# username = "backup-user"
+# password = "backup-pass"
+
+[discovery]
+# ===== 设备发现配置 (需要 --features discovery) =====
+
+# 是否启用 mDNS 局域网发现
+enabled = true
+
+# 连接码有效期（秒），默认 300 (5 分钟)
+connection_code_ttl = 300
+
+[signaling]
+# ===== 公共信令服务配置 (需要 --features discovery) =====
+
+# 信令服务提供商: "cloudflare" 或 "custom"
+provider = "cloudflare"
+
+# Cloudflare Worker URL (默认使用公共服务)
+# worker_url = "https://sscontrol-signaling.workers.dev"
+
+# 自定义信令服务器 URL (当 provider = "custom" 时使用)
+# custom_url = "https://your-signaling-server.com"
