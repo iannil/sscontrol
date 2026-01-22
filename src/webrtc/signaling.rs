@@ -105,11 +105,11 @@ impl SignalingClient {
     }
 
     /// 设置事件处理器
-    pub fn on_event<F>(&self, handler: F)
+    pub async fn on_event<F>(&self, handler: F)
     where
         F: Fn(SignalingEvent) + Send + 'static,
     {
-        *self.event_handler.blocking_lock() = Some(Box::new(handler));
+        *self.event_handler.lock().await = Some(Box::new(handler));
     }
 
     /// 连接到信令服务器

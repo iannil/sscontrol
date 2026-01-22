@@ -5,6 +5,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+pub mod host_session;
 pub mod peer_connection;
 pub mod signaling;
 pub mod video_track;

@@ -348,6 +348,183 @@ impl Encoder for H264Encoder {
 #[cfg(not(feature = "h264"))]
 pub type H264Encoder = SimpleEncoder;
 
+/// VP8 编码器 (用于 WebRTC)
+///
+/// 使用 FFmpeg 的 VP8 编码器 (libvpx)
+#[cfg(feature = "h264")]
+pub struct VP8Encoder {
+    width: u32,
+    height: u32,
+    #[allow(dead_code)]
+    fps: u32,
+    encoder: Option<ffmpeg::encoder::Video>,
+    sws_context: Option<ffmpeg::software::scaling::Context>,
+    pts: i64,
+    key_frame_interval: u64,
+    frame_count: u64,
+}
+
+#[cfg(feature = "h264")]
+unsafe impl Send for VP8Encoder {}
+
+#[cfg(feature = "h264")]
+impl VP8Encoder {
+    /// 创建新的 VP8 编码器
+    pub fn new(width: u32, height: u32, fps: u32, bitrate: u32) -> Result<Self> {
+        tracing::info!(
+            "创建 VP8 编码器: {}x{} @ {}fps, {}kbps",
+            width,
+            height,
+            fps,
+            bitrate
+        );
+
+        // 初始化 FFmpeg (仅第一次)
+        ffmpeg::init()?;
+
+        // 查找 VP8 编码器 (libvpx)
+        let encoder = ffmpeg::encoder::find(ffmpeg::codec::Id::VP8)
+            .ok_or_else(|| anyhow!("找不到 VP8 编码器 (需要 libvpx)"))?;
+
+        // 配置编码器
+        let mut context = ffmpeg::codec::context::Context::new_with_codec(encoder);
+        let mut encoder_context = context.encoder().video()?;
+
+        encoder_context.set_bit_rate((bitrate * 1000) as usize);
+        encoder_context.set_width(width);
+        encoder_context.set_height(height);
+        encoder_context.set_frame_rate(Some(ffmpeg::Rational(fps as i32, 1)));
+        encoder_context.set_time_base(ffmpeg::Rational(1, fps as i32));
+        encoder_context.set_gop(30);
+        encoder_context.set_format(ffmpeg::format::Pixel::YUV420P);
+
+        // 设置低延迟编码参数
+        let mut opts = ffmpeg::Dictionary::new();
+        opts.set("deadline", "realtime");
+        opts.set("cpu-used", "8");  // 最快速度
+        opts.set("lag-in-frames", "0");
+        opts.set("error-resilient", "1");
+
+        // 打开编码器
+        let video_encoder = encoder_context.open_with(opts)?;
+
+        // 创建 SwsContext 用于 RGBA -> YUV420P 转换
+        let sws_context = ffmpeg::software::scaling::Context::get(
+            ffmpeg::format::Pixel::RGBA,
+            width,
+            height,
+            ffmpeg::format::Pixel::YUV420P,
+            width,
+            height,
+            ffmpeg::software::scaling::Flags::BILINEAR,
+        )?;
+
+        tracing::info!("VP8 编码器创建成功 (realtime mode)");
+        Ok(VP8Encoder {
+            width,
+            height,
+            fps,
+            encoder: Some(video_encoder),
+            sws_context: Some(sws_context),
+            pts: 0,
+            key_frame_interval: 30,
+            frame_count: 0,
+        })
+    }
+
+    /// 编码帧并返回 VP8 数据
+    pub fn encode_frame(&mut self, frame: &Frame) -> Result<Option<Vec<u8>>> {
+        // 转换为 YUV420P
+        let mut yuv_frame = self.rgba_to_yuv420p_frame(&frame.data, frame.width, frame.height)?;
+
+        // 设置 PTS
+        yuv_frame.set_pts(Some(self.pts));
+        self.pts += 1;
+        self.frame_count += 1;
+
+        // 编码
+        let encoder = self.encoder.as_mut().ok_or_else(|| anyhow!("编码器未初始化"))?;
+        encoder.send_frame(&yuv_frame)?;
+
+        let mut packet = ffmpeg::packet::Packet::empty();
+        match encoder.receive_packet(&mut packet) {
+            Ok(_) => {
+                if packet.size() > 0 {
+                    Ok(Some(packet.data().unwrap_or(&[]).to_vec()))
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                let err_msg = e.to_string();
+                if err_msg.contains("more frames") || err_msg.contains("flushing") {
+                    Ok(None)
+                } else {
+                    Err(anyhow!("VP8 编码失败: {}", e))
+                }
+            }
+        }
+    }
+
+    /// 将 RGBA 帧转换为 YUV420P
+    fn rgba_to_yuv420p_frame(&mut self, rgba: &[u8], width: u32, height: u32) -> Result<ffmpeg::frame::Video> {
+        let mut src_frame = ffmpeg::frame::Video::empty();
+        src_frame.set_format(ffmpeg::format::Pixel::RGBA);
+        src_frame.set_width(width);
+        src_frame.set_height(height);
+
+        unsafe {
+            src_frame.alloc(ffmpeg::format::Pixel::RGBA, width, height);
+        }
+
+        let src_stride = src_frame.stride(0);
+        let src_data = src_frame.data_mut(0);
+        for y in 0..height as usize {
+            let src_row_start = y * (width as usize * 4);
+            let dst_row_start = y * src_stride;
+            let row_len = width as usize * 4;
+            src_data[dst_row_start..dst_row_start + row_len]
+                .copy_from_slice(&rgba[src_row_start..src_row_start + row_len]);
+        }
+
+        let mut dst_frame = ffmpeg::frame::Video::empty();
+        dst_frame.set_format(ffmpeg::format::Pixel::YUV420P);
+        dst_frame.set_width(width);
+        dst_frame.set_height(height);
+
+        unsafe {
+            dst_frame.alloc(ffmpeg::format::Pixel::YUV420P, width, height);
+        }
+
+        if let Some(ref mut sws) = self.sws_context {
+            sws.run(&src_frame, &mut dst_frame)?;
+        } else {
+            return Err(anyhow!("SwsContext 未初始化"));
+        }
+
+        Ok(dst_frame)
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+}
+
+/// VP8Encoder 占位符 (当 h264 feature 未启用时)
+#[cfg(not(feature = "h264"))]
+pub struct VP8Encoder;
+
+#[cfg(not(feature = "h264"))]
+impl VP8Encoder {
+    pub fn new(_width: u32, _height: u32, _fps: u32, _bitrate: u32) -> Result<Self> {
+        Err(anyhow::anyhow!("VP8 编码器需要启用 h264 feature (FFmpeg)"))
+    }
+}
+
 /// 创建编码器
 ///
 /// # 参数

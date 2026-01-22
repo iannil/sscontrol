@@ -12,8 +12,7 @@ webrtc = ["dep:webrtc", "dep:bytes"]  # WebRTC 支持 (使用 webrtc-rs)
 security = ["dep:tokio-rustls", "dep:rustls", "dep:rustls-pemfile", "dep:rustls-native-certs"]  # 安全特性 (TLS 和认证)
 service = []  # 系统服务特性 (Windows Service / macOS LaunchAgent / Linux systemd)
 ui = []  # GUI 特性 (用于 Tauri 集成)
-discovery = ["dep:mdns-sd", "dep:base32", "dep:crc", "dep:reqwest", "dep:x25519-dalek", "dep:argon2", "dep:hostname"]  # 设备发现和开箱即用连接
-deploy = ["dep:ssh2", "dep:dirs", "dep:rpassword", "dep:zeroize"]  # 远程部署信令服务器 (SSH)
+discovery = ["dep:mdns-sd", "dep:base32", "dep:crc", "dep:reqwest", "dep:x25519-dalek", "dep:argon2", "dep:hostname"]  # 设备发现 (保留用于未来扩展)
 
 [dependencies]
 # Async runtime
@@ -52,12 +51,6 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 x25519-dalek = { version = "2.0", features = ["static_secrets"], optional = true }
 argon2 = { version = "0.5", optional = true }
 hostname = { version = "0.4", optional = true }
-
-# Deploy (optional, use --features deploy to enable)
-ssh2 = { version = "0.9", optional = true }
-dirs = { version = "5.0", optional = true }
-rpassword = { version = "7.3", optional = true }
-zeroize = { version = "1.7", optional = true }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -120,10 +113,3 @@ path = "src/lib.rs"
 name = "sscontrol"
 path = "src/main.rs"
 
-[[bin]]
-name = "sscontrol-signaling"
-path = "src/bin/signaling_server.rs"
-
-[[bin]]
-name = "sscontrol-signaling-rest"
-path = "src/bin/signaling_rest_server.rs"

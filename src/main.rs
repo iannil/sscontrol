@@ -15,17 +15,12 @@ mod security;
 // 服务模块
 mod service;
 
-// 发现和连接模块 (当启用 discovery feature 时)
-#[cfg(feature = "discovery")]
-mod discovery;
-#[cfg(feature = "discovery")]
+// 信令和 WebRTC 模块
 mod signaling;
-#[cfg(feature = "discovery")]
-mod connection;
+mod webrtc;
 
-// 部署模块 (当启用 deploy feature 时)
-#[cfg(feature = "deploy")]
-mod deploy;
+// Web 查看器模块
+mod viewer;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -37,7 +32,6 @@ use std::time::Duration;
 use tokio::signal;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
-use tracing_subscriber;
 use tracing::Level;
 
 /// sscontrol - 命令行参数
@@ -51,14 +45,6 @@ struct Args {
     #[arg(short, long)]
     config: Option<String>,
 
-    /// 服务器 URL
-    #[arg(short, long)]
-    server: Option<String>,
-
-    /// 设备 ID
-    #[arg(short, long)]
-    device_id: Option<String>,
-
     /// 目标帧率
     #[arg(short, long)]
     fps: Option<u32>,
@@ -67,29 +53,9 @@ struct Args {
     #[arg(short = 'i', long)]
     screen: Option<u32>,
 
-    /// 日志级别
+    /// 日志级别 (0=warn, 1=info, 2=debug, 3=trace)
     #[arg(short, long)]
     verbose: Option<u8>,
-
-    /// STUN 服务器 URL (可多次指定)
-    #[arg(long = "stun")]
-    stun_servers: Option<Vec<String>>,
-
-    /// TURN 服务器 URL
-    #[arg(long = "turn")]
-    turn_server: Option<String>,
-
-    /// TURN 服务器用户名
-    #[arg(long = "turn-username")]
-    turn_username: Option<String>,
-
-    /// TURN 服务器密码
-    #[arg(long = "turn-password")]
-    turn_password: Option<String>,
-
-    /// ICE 传输策略 (all 或 relay)
-    #[arg(long = "ice-policy")]
-    ice_transport_policy: Option<String>,
 }
 
 /// 子命令
@@ -104,43 +70,22 @@ enum Commands {
         action: ServiceCommands,
     },
 
-    /// 被控端模式 - 生成连接码等待连接 (需要 --features discovery)
-    #[cfg(feature = "discovery")]
+    /// 被控端模式 - 启动内嵌信令服务器等待连接
     Host {
-        /// 信令服务器 URL (默认使用公共服务)
-        #[arg(long)]
-        signaling_url: Option<String>,
-
-        /// 连接码有效期 (秒，默认 300)
-        #[arg(long, default_value = "300")]
-        ttl: u64,
+        /// 信令服务器端口 (默认 9527)
+        #[arg(short, long, default_value = "9527")]
+        port: u16,
     },
 
-    /// 控制端模式 - 通过连接码连接被控端 (需要 --features discovery)
-    #[cfg(feature = "discovery")]
+    /// 控制端模式 - 通过 IP 连接被控端
     Connect {
-        /// 连接码 (格式: XXXX-XXXX-XXXX-XXXX)
+        /// 被控端 IP 地址
         #[arg(long)]
-        code: String,
+        ip: String,
 
-        /// PIN 码 (4 位数字)
-        #[arg(long)]
-        pin: String,
-
-        /// 信令服务器 URL (默认使用公共服务)
-        #[arg(long)]
-        signaling_url: Option<String>,
-    },
-
-    /// 发现局域网设备 (需要 --features discovery)
-    #[cfg(feature = "discovery")]
-    Discover,
-
-    /// 部署信令服务器 (需要 --features deploy)
-    #[cfg(feature = "deploy")]
-    Deploy {
-        #[command(subcommand)]
-        action: DeployCommands,
+        /// 被控端端口 (默认 9527)
+        #[arg(short, long, default_value = "9527")]
+        port: u16,
     },
 }
 
@@ -159,104 +104,6 @@ enum ServiceCommands {
     Status,
 }
 
-/// 部署命令 (需要 --features deploy)
-#[cfg(feature = "deploy")]
-#[derive(Subcommand, Debug)]
-enum DeployCommands {
-    /// 部署信令服务器到远程服务器
-    Signaling {
-        /// 远程服务器地址
-        #[arg(long)]
-        host: String,
-
-        /// SSH 端口
-        #[arg(long, default_value = "22")]
-        ssh_port: u16,
-
-        /// SSH 用户名
-        #[arg(long, short = 'u', default_value = "root")]
-        user: String,
-
-        /// SSH 私钥路径
-        #[arg(long, short = 'k')]
-        key: Option<String>,
-
-        /// SSH 密码 (不推荐，建议使用密钥)
-        #[arg(long)]
-        password: Option<String>,
-
-        /// 信令服务器端口
-        #[arg(long, short = 'p', default_value = "8443")]
-        port: u16,
-
-        /// 启用 TLS (需要 --domain 和 --email)
-        #[arg(long)]
-        tls: bool,
-
-        /// TLS 域名
-        #[arg(long)]
-        domain: Option<String>,
-
-        /// Let's Encrypt 邮箱
-        #[arg(long)]
-        email: Option<String>,
-
-        /// API Key (不指定则自动生成)
-        #[arg(long)]
-        api_key: Option<String>,
-
-        /// 本地信令服务器二进制文件路径
-        #[arg(long)]
-        binary: Option<String>,
-    },
-
-    /// 检查远程信令服务器状态
-    Status {
-        /// 远程服务器地址
-        #[arg(long)]
-        host: String,
-
-        /// SSH 端口
-        #[arg(long, default_value = "22")]
-        ssh_port: u16,
-
-        /// SSH 用户名
-        #[arg(long, short = 'u', default_value = "root")]
-        user: String,
-
-        /// SSH 私钥路径
-        #[arg(long, short = 'k')]
-        key: Option<String>,
-
-        /// SSH 密码
-        #[arg(long)]
-        password: Option<String>,
-    },
-
-    /// 卸载远程信令服务器
-    Uninstall {
-        /// 远程服务器地址
-        #[arg(long)]
-        host: String,
-
-        /// SSH 端口
-        #[arg(long, default_value = "22")]
-        ssh_port: u16,
-
-        /// SSH 用户名
-        #[arg(long, short = 'u', default_value = "root")]
-        user: String,
-
-        /// SSH 私钥路径
-        #[arg(long, short = 'k')]
-        key: Option<String>,
-
-        /// SSH 密码
-        #[arg(long)]
-        password: Option<String>,
-    },
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // 解析命令行参数
@@ -266,43 +113,33 @@ async fn main() -> Result<()> {
     if let Some(command) = args.command {
         return match command {
             Commands::Run => {
-                // 以服务模式运行
                 init_logging(args.verbose.unwrap_or(1));
                 run_service_mode().await
             }
             Commands::Service { action } => {
-                // 服务管理命令
                 handle_service_command(action)
             }
-            #[cfg(feature = "discovery")]
-            Commands::Host { signaling_url, ttl } => {
-                // 被控端模式
+            Commands::Host { port } => {
                 init_logging(args.verbose.unwrap_or(1));
-                run_host_mode(signaling_url, ttl).await
+                run_host_mode(port).await
             }
-            #[cfg(feature = "discovery")]
-            Commands::Connect { code, pin, signaling_url } => {
-                // 控制端模式
+            Commands::Connect { ip, port } => {
                 init_logging(args.verbose.unwrap_or(1));
-                run_connect_mode(&code, &pin, signaling_url).await
-            }
-            #[cfg(feature = "discovery")]
-            Commands::Discover => {
-                // 设备发现模式
-                init_logging(args.verbose.unwrap_or(1));
-                run_discover_mode().await
-            }
-            #[cfg(feature = "deploy")]
-            Commands::Deploy { action } => {
-                // 部署命令
-                init_logging(args.verbose.unwrap_or(1));
-                handle_deploy_command(action).await
+                run_connect_mode(&ip, port).await
             }
         };
     }
 
-    // 默认模式：交互式运行
-    run_interactive(args).await
+    // 默认模式：显示帮助
+    println!("sscontrol - 无界面远程桌面应用");
+    println!();
+    println!("用法:");
+    println!("  被控端: sscontrol host [--port 9527]");
+    println!("  控制端: sscontrol connect --ip <IP> [--port 9527]");
+    println!();
+    println!("运行 'sscontrol --help' 查看更多选项");
+
+    Ok(())
 }
 
 /// 初始化日志
@@ -355,62 +192,7 @@ fn handle_service_command(action: ServiceCommands) -> Result<()> {
     Ok(())
 }
 
-/// 交互式运行模式
-async fn run_interactive(args: Args) -> Result<()> {
-    // 初始化日志
-    init_logging(args.verbose.unwrap_or(1));
-
-    info!("sscontrol v0.1.0 启动中...");
-
-    // 加载配置
-    let config_path = if let Some(ref path) = args.config {
-        path.clone()
-    } else {
-        config::Config::get_config_path(None)
-    };
-
-    let mut config = config::Config::load(&config_path)?;
-
-    // 命令行参数覆盖配置
-    if let Some(server) = args.server {
-        config.server.url = server;
-    }
-    if let Some(device_id) = args.device_id {
-        config.server.device_id = device_id;
-    }
-    if let Some(fps) = args.fps {
-        config.capture.fps = fps;
-    }
-    if let Some(screen) = args.screen {
-        config.capture.screen_index = Some(screen);
-    }
-
-    // WebRTC 配置覆盖
-    if let Some(stun_servers) = args.stun_servers {
-        config.webrtc.stun_servers = stun_servers;
-    }
-    if let Some(policy) = args.ice_transport_policy {
-        config.webrtc.ice_transport_policy = policy;
-    }
-    // TURN 服务器配置 (需要同时提供 url, username, password)
-    if let (Some(url), Some(username), Some(password)) =
-        (args.turn_server, args.turn_username, args.turn_password)
-    {
-        config.webrtc.turn_servers.push(config::TurnServerConfig {
-            url,
-            username,
-            password,
-        });
-    }
-
-    // 运行主循环
-    run_main_loop(config).await
-}
-
 /// 服务模式运行
-///
-/// 此函数在服务模式下被调用，运行相同的捕获和发送逻辑
-/// 但不会因为 Ctrl+C 而退出（由服务管理器控制生命周期）
 async fn run_service_mode() -> Result<()> {
     info!("sscontrol 服务模式启动...");
 
@@ -422,12 +204,8 @@ async fn run_service_mode() -> Result<()> {
 }
 
 /// 主循环逻辑
-///
-/// 被 run_interactive 和 run_service_mode 共享
 async fn run_main_loop(config: config::Config) -> Result<()> {
-    // 打印配置信息
     info!("设备 ID: {}", config.server.device_id);
-    info!("服务器: {}", config.server.url);
     info!("目标帧率: {} fps", config.capture.fps);
 
     // 检查屏幕录制权限 (macOS)
@@ -446,16 +224,15 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
     info!("屏幕尺寸: {}x{}", capturer.width(), capturer.height());
 
     // 创建编码器
-    info!("初始化 H.264 编码器...");
+    info!("初始化编码器...");
     let mut encoder = encoder::H264Encoder::new(
         capturer.width(),
         capturer.height(),
         config.capture.fps,
-        2000, // 2000 kbps
+        2000,
     )?;
 
     // 创建网络客户端
-    info!("连接到服务器...");
     let client = network::VideoClient::new(
         config.server.url.clone(),
         config.server.device_id.clone(),
@@ -464,9 +241,8 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
     // 创建输入模拟器
     info!("初始化输入模拟器...");
     let input_simulator = input::create_input_simulator()?;
-    info!("输入模拟器初始化成功");
 
-    // 设置输入事件处理器 (使用 channel)
+    // 设置输入事件处理器
     let simulator = Arc::new(Mutex::new(input_simulator));
     let mut input_receiver = client.take_input_receiver().await?;
 
@@ -479,7 +255,7 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
             }
         }
     };
-    let simulator_handle = tokio::spawn(simulator_task);
+    let _simulator_handle = tokio::spawn(simulator_task);
 
     // 连接到服务器
     if let Err(e) = client.connect().await {
@@ -493,7 +269,6 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
     let ctrl_c = async {
         if let Err(e) = signal::ctrl_c().await {
             error!("无法监听 Ctrl+C 信号: {}", e);
-            // 无法监听 Ctrl+C 时，使用备用等待机制
             tokio::time::sleep(Duration::from_secs(u64::MAX)).await;
         }
         info!("收到退出信号，正在关闭...");
@@ -508,13 +283,10 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
         loop {
             let start = std::time::Instant::now();
 
-            // 捕获屏幕
             match capturer.capture() {
                 Ok(frame) => {
-                    // 编码
                     match encoder.encode(&frame) {
                         Ok(Some(packet)) => {
-                            // 发送
                             if client.is_connected().await {
                                 if let Err(e) = client.send_packet(packet.data, packet.is_key_frame).await {
                                     error!("发送失败: {}", e);
@@ -523,7 +295,6 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
 
                             frame_count += 1;
 
-                            // 每秒报告一次
                             if last_report.elapsed() >= Duration::from_secs(1) {
                                 let fps = frame_count as f64 / last_report.elapsed().as_secs_f64();
                                 info!("捕获: {} 帧, 实际 FPS: {:.1}", frame_count, fps);
@@ -531,9 +302,7 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
                                 last_report = std::time::Instant::now();
                             }
                         }
-                        Ok(None) => {
-                            // 编码器需要更多数据
-                        }
+                        Ok(None) => {}
                         Err(e) => {
                             error!("编码失败: {}", e);
                         }
@@ -544,7 +313,6 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
                 }
             }
 
-            // 帧率控制
             let elapsed = start.elapsed();
             if elapsed < frame_interval {
                 tokio::time::sleep(frame_interval - elapsed).await;
@@ -552,17 +320,13 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
         }
     };
 
-    // 等待退出信号
     tokio::select! {
         _ = ctrl_c => {
             info!("正在退出...");
         }
-        _ = capture_task => {
-            // 永不返回
-        }
+        _ = capture_task => {}
     }
 
-    // 清理
     capturer.stop()?;
     client.disconnect().await?;
 
@@ -571,13 +335,15 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
 }
 
 // ============================================================================
-// Discovery 模式相关函数 (需要 --features discovery)
+// 被控端/控制端模式
 // ============================================================================
 
-/// 被控端模式 - 生成连接码等待连接
-#[cfg(feature = "discovery")]
-async fn run_host_mode(signaling_url: Option<String>, ttl: u64) -> Result<()> {
-    use connection::{ConnectionConfig, ConnectionManager};
+/// 被控端模式 - 启动内嵌信令服务器
+async fn run_host_mode(port: u16) -> Result<()> {
+    use signaling::{EmbeddedSignalingServer, HostSignalEvent};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     info!("sscontrol 被控端模式启动...");
 
@@ -585,315 +351,392 @@ async fn run_host_mode(signaling_url: Option<String>, ttl: u64) -> Result<()> {
     let config_path = config::Config::get_config_path(None);
     let config = config::Config::load(&config_path)?;
 
-    // 创建连接配置
-    let conn_config = ConnectionConfig {
-        signaling_url,
-        code_ttl: ttl,
-        connect_timeout: 60,
-        mdns_enabled: true,
-    };
+    // 启动内嵌信令服务器
+    let mut signaling_server = EmbeddedSignalingServer::new(port);
+    let actual_port = signaling_server.start().await?;
 
-    // 创建连接管理器
-    let mut manager = ConnectionManager::new_host(&config.server.device_id, conn_config)?;
+    // 获取 Host 事件接收器
+    let mut host_events = signaling_server
+        .take_host_events()
+        .expect("无法获取 Host 事件接收器");
 
-    // 这里需要生成一个临时的 SDP offer
-    // 在实际使用中，这应该从 WebRTC PeerConnection 获取
-    let dummy_offer = "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n";
-
-    // 生成连接码
-    let info = manager.host_start(dummy_offer, vec![]).await?;
+    // 获取本机 IP 地址
+    let local_ip = get_local_ip().unwrap_or_else(|| "127.0.0.1".to_string());
 
     // 打印连接信息
     println!();
     println!("========================================");
-    println!("  连接码: {}", info.code_string);
-    println!("  PIN:    {}", info.pin);
+    println!("  sscontrol 被控端已启动");
     println!("========================================");
     println!();
-    println!("请在控制端运行:");
-    println!("  sscontrol connect --code {} --pin {}", info.code_string, info.pin);
+    println!("  本机 IP: {}", local_ip);
+    println!("  端口:    {}", actual_port);
+    println!();
+    println!("控制端连接命令:");
+    println!("  sscontrol connect --ip {} --port {}", local_ip, actual_port);
     println!();
     println!("等待连接中... (按 Ctrl+C 退出)");
-
-    // 等待连接
-    let session_id = info.code.session_id_hex();
-    let ctrl_c = signal::ctrl_c();
-
-    tokio::select! {
-        result = manager.host_wait_for_connection(&session_id) => {
-            match result {
-                Ok((answer, candidates)) => {
-                    info!("收到控制端连接!");
-                    info!("Answer: {}...", &answer[..answer.len().min(50)]);
-                    info!("ICE candidates: {} 个", candidates.len());
-
-                    // TODO: 使用 answer 和 candidates 完成 WebRTC 连接
-                    println!("连接成功!");
-                }
-                Err(e) => {
-                    error!("等待连接失败: {}", e);
-                }
-            }
-        }
-        _ = ctrl_c => {
-            info!("收到退出信号");
-        }
-    }
-
-    info!("被控端模式退出");
-    Ok(())
-}
-
-/// 控制端模式 - 通过连接码连接
-#[cfg(feature = "discovery")]
-async fn run_connect_mode(code: &str, pin: &str, signaling_url: Option<String>) -> Result<()> {
-    use connection::{ConnectionConfig, ConnectionManager};
-
-    info!("sscontrol 控制端模式启动...");
-    info!("连接码: {}", code);
-
-    // 加载配置
-    let config_path = config::Config::get_config_path(None);
-    let config = config::Config::load(&config_path)?;
-
-    // 创建连接配置
-    let conn_config = ConnectionConfig {
-        signaling_url,
-        code_ttl: 300,
-        connect_timeout: 60,
-        mdns_enabled: true,
-    };
-
-    // 创建连接管理器
-    let mut manager = ConnectionManager::new_client(&config.server.device_id, conn_config)?;
-
-    // 连接
-    println!("正在连接...");
-
-    match manager.client_connect(code, pin).await {
-        Ok((offer, candidates)) => {
-            info!("获取到被控端信息!");
-            info!("Offer: {}...", &offer[..offer.len().min(50)]);
-            info!("ICE candidates: {} 个", candidates.len());
-
-            // TODO: 使用 offer 和 candidates 建立 WebRTC 连接
-            // 然后发送 answer 回去
-
-            // 模拟发送 answer
-            let dummy_answer = "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n";
-            let session_id = {
-                let decoded = discovery::ConnectionCode::decode(code)?;
-                decoded.session_id_hex()
-            };
-
-            manager.client_send_answer(&session_id, dummy_answer, vec![]).await?;
-
-            println!("连接成功!");
-        }
-        Err(e) => {
-            error!("连接失败: {}", e);
-            return Err(e);
-        }
-    }
-
-    // 保持运行
-    println!("按 Ctrl+C 断开连接");
-    signal::ctrl_c().await?;
-
-    info!("控制端模式退出");
-    Ok(())
-}
-
-/// 设备发现模式 - 扫描局域网设备
-#[cfg(feature = "discovery")]
-async fn run_discover_mode() -> Result<()> {
-    use discovery::MdnsDiscovery;
-
-    info!("sscontrol 设备发现模式启动...");
-    println!("正在扫描局域网内的 sscontrol 设备...");
     println!();
 
-    let mut discovery = MdnsDiscovery::new()?;
-    let mut rx = discovery.start()?;
-
-    // 设置超时
-    let timeout = Duration::from_secs(10);
-    let start = std::time::Instant::now();
-
-    println!("发现的设备:");
-    println!("------------------------------------------------------------");
-
-    while start.elapsed() < timeout {
-        tokio::select! {
-            Some(peer) = rx.recv() => {
-                println!(
-                    "  {} ({}) - {}:{}",
-                    peer.hostname,
-                    peer.device_id,
-                    peer.ip_address,
-                    peer.port
-                );
-                if let Some(ref session_id) = peer.session_id {
-                    println!("    Session: {}", session_id);
-                }
-            }
-            _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                // 继续等待
-            }
+    // 检查屏幕录制权限 (macOS)
+    #[cfg(target_os = "macos")]
+    {
+        if !capture::macos::MacOSCapturer::check_screen_recording_permission() {
+            warn!("屏幕录制权限未授予，请在系统设置中授权");
         }
     }
 
-    println!("------------------------------------------------------------");
+    // 创建屏幕捕获器
+    info!("初始化屏幕捕获器...");
+    let capturer = Arc::new(Mutex::new(capture::create_capturer(config.capture.screen_index)?));
+    let screen_width;
+    let screen_height;
+    {
+        let cap = capturer.lock().await;
+        screen_width = cap.width();
+        screen_height = cap.height();
+    }
+    info!("屏幕尺寸: {}x{}", screen_width, screen_height);
 
-    // 打印已发现的所有设备
-    let peers = discovery.get_peers();
-    println!("\n共发现 {} 个设备", peers.len());
+    // 创建输入模拟器
+    info!("初始化输入模拟器...");
+    let _input_simulator = input::create_input_simulator()?;
 
-    discovery.stop()?;
+    // WebRTC 会话管理 - 使用 Arc<HostSession> 以便共享
+    #[cfg(feature = "webrtc")]
+    let sessions: Arc<Mutex<HashMap<String, Arc<webrtc::host_session::HostSession>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+
+    // 信令服务器引用
+    let signaling_server = Arc::new(signaling_server);
+
+    // 处理信令事件
+    let signaling_server_clone = signaling_server.clone();
+    #[cfg(feature = "webrtc")]
+    let sessions_clone = sessions.clone();
+
+    let signal_handler = tokio::spawn(async move {
+        while let Some(event) = host_events.recv().await {
+            match event {
+                HostSignalEvent::ViewerJoined { peer_id } => {
+                    info!("Viewer 加入: {}", peer_id);
+                    println!("  [+] Viewer 连接: {}", peer_id);
+                }
+                HostSignalEvent::ViewerLeft { peer_id } => {
+                    info!("Viewer 离开: {}", peer_id);
+                    println!("  [-] Viewer 断开: {}", peer_id);
+
+                    #[cfg(feature = "webrtc")]
+                    {
+                        let mut sessions = sessions_clone.lock().await;
+                        if let Some(session) = sessions.remove(&peer_id) {
+                            let _ = session.close().await;
+                        }
+                    }
+                }
+                HostSignalEvent::Offer { from, sdp } => {
+                    info!("收到 Offer from: {}", from);
+
+                    #[cfg(feature = "webrtc")]
+                    {
+                        // 创建 WebRTC 会话
+                        match webrtc::host_session::HostSession::new(from.clone()).await {
+                            Ok(session) => {
+                                let session = Arc::new(session);
+
+                                // 处理 Offer，生成 Answer
+                                match session.handle_offer(&sdp).await {
+                                    Ok(answer_sdp) => {
+                                        // 发送 Answer
+                                        signaling_server_clone
+                                            .send_answer(&from, &answer_sdp)
+                                            .await;
+                                        info!("已发送 Answer to: {}", from);
+
+                                        // 发送 ICE 候选
+                                        let signaling = signaling_server_clone.clone();
+                                        let peer_id = from.clone();
+                                        let session_for_ice = session.clone();
+
+                                        tokio::spawn(async move {
+                                            while let Some(ice) =
+                                                session_for_ice.next_ice_candidate().await
+                                            {
+                                                signaling
+                                                    .send_ice(
+                                                        &peer_id,
+                                                        &ice.candidate,
+                                                        &ice.sdp_mid,
+                                                        ice.sdp_mline_index,
+                                                    )
+                                                    .await;
+                                            }
+                                        });
+
+                                        // 保存会话
+                                        {
+                                            let mut sessions = sessions_clone.lock().await;
+                                            sessions.insert(from.clone(), session);
+                                        }
+                                        info!("WebRTC 会话已建立: {}", from);
+                                    }
+                                    Err(e) => {
+                                        error!("处理 Offer 失败: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("创建 WebRTC 会话失败: {}", e);
+                            }
+                        }
+                    }
+
+                    #[cfg(not(feature = "webrtc"))]
+                    {
+                        warn!("WebRTC feature 未启用，无法处理 Offer");
+                    }
+                }
+                HostSignalEvent::Ice {
+                    from,
+                    candidate,
+                    sdp_mid,
+                    sdp_mline_index,
+                } => {
+                    info!("收到 ICE from: {}", from);
+
+                    #[cfg(feature = "webrtc")]
+                    {
+                        let sessions = sessions_clone.lock().await;
+                        if let Some(session) = sessions.get(&from) {
+                            let ice = webrtc::host_session::IceCandidate {
+                                candidate,
+                                sdp_mid,
+                                sdp_mline_index,
+                            };
+                            if let Err(e) = session.add_ice_candidate(&ice).await {
+                                error!("添加 ICE 候选失败: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 视频捕获和发送循环
+    #[cfg(feature = "webrtc")]
+    let video_task = {
+        let sessions = sessions.clone();
+        let capturer = capturer.clone();
+        let fps = config.capture.fps;
+
+        tokio::spawn(async move {
+            // 创建 VP8 编码器
+            #[cfg(feature = "h264")]
+            let mut vp8_encoder = match encoder::VP8Encoder::new(screen_width, screen_height, fps, 2000) {
+                Ok(enc) => Some(enc),
+                Err(e) => {
+                    error!("创建 VP8 编码器失败: {}，视频流将不可用", e);
+                    None
+                }
+            };
+
+            #[cfg(not(feature = "h264"))]
+            let vp8_encoder: Option<encoder::VP8Encoder> = None;
+
+            if vp8_encoder.is_none() {
+                warn!("VP8 编码器不可用，视频流功能禁用");
+                return;
+            }
+
+            let frame_interval = Duration::from_millis(1000 / fps as u64);
+            let mut last_report = std::time::Instant::now();
+            let mut frame_count = 0u64;
+
+            // 启动捕获器
+            {
+                let mut cap = capturer.lock().await;
+                if let Err(e) = cap.start() {
+                    error!("启动屏幕捕获失败: {}", e);
+                    return;
+                }
+            }
+
+            loop {
+                let start = std::time::Instant::now();
+
+                // 检查是否有活跃会话
+                let active_sessions: Vec<Arc<webrtc::host_session::HostSession>> = {
+                    let sessions = sessions.lock().await;
+                    sessions.values().cloned().collect()
+                };
+
+                if !active_sessions.is_empty() {
+                    // 捕获屏幕
+                    let frame = {
+                        let mut cap = capturer.lock().await;
+                        cap.capture()
+                    };
+
+                    match frame {
+                        Ok(frame) => {
+                            // VP8 编码
+                            #[cfg(feature = "h264")]
+                            if let Some(ref mut encoder) = vp8_encoder {
+                                match encoder.encode_frame(&frame) {
+                                    Ok(Some(vp8_data)) => {
+                                        // 发送给所有活跃会话
+                                        for session in &active_sessions {
+                                            if let Err(e) = session
+                                                .send_video_sample(vp8_data.clone(), frame_interval)
+                                                .await
+                                            {
+                                                error!("发送视频帧失败: {}", e);
+                                            }
+                                        }
+
+                                        frame_count += 1;
+                                    }
+                                    Ok(None) => {}
+                                    Err(e) => {
+                                        error!("VP8 编码失败: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("屏幕捕获失败: {}", e);
+                        }
+                    }
+                }
+
+                // 每秒报告一次
+                if last_report.elapsed() >= Duration::from_secs(5) {
+                    if !active_sessions.is_empty() {
+                        let fps_actual = frame_count as f64 / last_report.elapsed().as_secs_f64();
+                        info!("视频流: {} 帧, {:.1} FPS, {} 个观看者", frame_count, fps_actual, active_sessions.len());
+                    }
+                    frame_count = 0;
+                    last_report = std::time::Instant::now();
+                }
+
+                // 控制帧率
+                let elapsed = start.elapsed();
+                if elapsed < frame_interval {
+                    tokio::time::sleep(frame_interval - elapsed).await;
+                }
+            }
+        })
+    };
+
+    #[cfg(not(feature = "webrtc"))]
+    let video_task = tokio::spawn(async {
+        // WebRTC 未启用时的占位符
+        tokio::time::sleep(Duration::from_secs(u64::MAX)).await;
+    });
+
+    // 等待退出信号
+    let ctrl_c = async {
+        if let Err(e) = signal::ctrl_c().await {
+            error!("无法监听 Ctrl+C 信号: {}", e);
+            tokio::time::sleep(Duration::from_secs(u64::MAX)).await;
+        }
+        info!("收到退出信号，正在关闭...");
+    };
+
+    ctrl_c.await;
+
+    // 清理
+    signal_handler.abort();
+    video_task.abort();
+    signaling_server.stop();
+
+    // 停止捕获器
+    {
+        let mut cap = capturer.lock().await;
+        let _ = cap.stop();
+    }
+
+    info!("被控端模式已退出");
     Ok(())
 }
 
-// ============================================================================
-// Deploy 模式相关函数 (需要 --features deploy)
-// ============================================================================
+/// 控制端模式 - 通过 IP 连接被控端
+async fn run_connect_mode(ip: &str, port: u16) -> Result<()> {
+    use viewer::WebViewer;
 
-/// 处理部署命令
-#[cfg(feature = "deploy")]
-async fn handle_deploy_command(action: DeployCommands) -> Result<()> {
-    use deploy::{SignalingDeployer, SignalingDeployment};
-    use std::path::PathBuf;
+    info!("sscontrol 控制端模式启动...");
+    info!("目标地址: {}:{}", ip, port);
 
-    match action {
-        DeployCommands::Signaling {
-            host,
-            ssh_port,
-            user,
-            key,
-            password,
-            port,
-            tls,
-            domain,
-            email,
-            api_key,
-            binary,
-        } => {
-            info!("开始部署信令服务器到 {}...", host);
+    let ws_url = format!("ws://{}:{}", ip, port);
 
-            // 验证 TLS 参数
-            if tls && (domain.is_none() || email.is_none()) {
-                anyhow::bail!("启用 TLS 需要同时提供 --domain 和 --email 参数");
-            }
+    println!();
+    println!("========================================");
+    println!("  sscontrol 控制端");
+    println!("========================================");
+    println!();
 
-            // 如果没有提供密码且没有提供密钥，尝试交互式获取密码
-            let password = if password.is_none() && key.is_none() {
-                // 检查是否能自动检测到 SSH 密钥
-                if deploy::SshConnection::detect_ssh_key().is_none() {
-                    // 没有可用的密钥，尝试获取密码
-                    println!("未找到 SSH 密钥，请输入密码:");
-                    match rpassword::read_password() {
-                        Ok(pwd) if !pwd.is_empty() => Some(pwd),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            } else {
-                password
-            };
+    // 启动 Web 查看器
+    let viewer = WebViewer::new(ws_url.clone(), 0); // 0 = 随机端口
+    let viewer_port = viewer.start().await?;
 
-            let config = SignalingDeployment {
-                host: host.clone(),
-                ssh_port,
-                ssh_user: user,
-                ssh_key_path: key.map(PathBuf::from),
-                ssh_password: password,
-                signaling_port: port,
-                enable_tls: tls,
-                domain: domain.clone(),
-                letsencrypt_email: email,
-                api_key,
-                binary_path: binary.map(PathBuf::from),
-            };
+    let viewer_url = format!("http://127.0.0.1:{}", viewer_port);
 
-            let deployer = SignalingDeployer::new(config)?;
-            let result = deployer.deploy()?;
+    println!("  被控端: {}:{}", ip, port);
+    println!("  查看器: {}", viewer_url);
+    println!();
 
-            // 打印结果
-            println!();
-            println!("========================================");
-            println!("  部署成功!");
-            println!("========================================");
-            println!();
-            println!("信令服务器地址: {}", result.server_url);
-            if let Some(ref api_key) = result.api_key {
-                println!("API Key: {}", api_key);
-            }
-            println!();
-            println!("使用方法:");
-            println!("  sscontrol host --signaling-url {}", result.server_url);
-            println!();
-            if result.tls_enabled {
-                println!("TLS 已启用，证书将自动续期");
-            }
-        }
+    // 打开浏览器
+    info!("正在打开浏览器...");
+    if let Err(e) = open_browser(&viewer_url) {
+        warn!("无法自动打开浏览器: {}", e);
+        println!("请手动打开浏览器访问: {}", viewer_url);
+    } else {
+        println!("浏览器已打开，如未自动打开请访问: {}", viewer_url);
+    }
 
-        DeployCommands::Status {
-            host,
-            ssh_port,
-            user,
-            key,
-            password,
-        } => {
-            info!("检查信令服务器状态...");
+    println!();
+    println!("按 Ctrl+C 退出");
 
-            let config = SignalingDeployment {
-                host: host.clone(),
-                ssh_port,
-                ssh_user: user,
-                ssh_key_path: key.map(PathBuf::from),
-                ssh_password: password,
-                ..Default::default()
-            };
+    // 等待退出信号
+    signal::ctrl_c().await?;
 
-            let deployer = SignalingDeployer::new(config)?;
-            let status = deployer.status()?;
+    info!("控制端模式已退出");
+    Ok(())
+}
 
-            println!("服务状态:\n{}", status);
-        }
+/// 打开浏览器
+fn open_browser(url: &str) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()?;
+    }
 
-        DeployCommands::Uninstall {
-            host,
-            ssh_port,
-            user,
-            key,
-            password,
-        } => {
-            info!("卸载信令服务器...");
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", url])
+            .spawn()?;
+    }
 
-            // 确认操作
-            println!("确定要从 {} 卸载信令服务器吗? [y/N] ", host);
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-            if !input.trim().eq_ignore_ascii_case("y") {
-                println!("已取消");
-                return Ok(());
-            }
-
-            let config = SignalingDeployment {
-                host: host.clone(),
-                ssh_port,
-                ssh_user: user,
-                ssh_key_path: key.map(PathBuf::from),
-                ssh_password: password,
-                ..Default::default()
-            };
-
-            let deployer = SignalingDeployer::new(config)?;
-            deployer.uninstall()?;
-
-            println!("信令服务器已从 {} 卸载", host);
-        }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()?;
     }
 
     Ok(())
+}
+
+/// 获取本机 IP 地址
+fn get_local_ip() -> Option<String> {
+    use std::net::UdpSocket;
+
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    let local_addr = socket.local_addr().ok()?;
+    Some(local_addr.ip().to_string())
 }

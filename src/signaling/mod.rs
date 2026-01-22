@@ -1,7 +1,7 @@
-//! 公共信令服务客户端模块
+//! 信令服务模块
 //!
-//! 提供与公共信令服务（如 Cloudflare Workers）的通信功能
+//! 提供内嵌信令服务器，用于局域网极简模式
 
-mod cloudflare;
+mod embedded;
 
-pub use cloudflare::{CloudflareSignaling, SessionInfo, IceCandidate, SignalingError};
+pub use embedded::{EmbeddedSignalingServer, HostSignalEvent};

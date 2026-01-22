@@ -14,11 +14,8 @@ pub mod webrtc;
 #[cfg(feature = "discovery")]
 pub mod discovery;
 
-#[cfg(feature = "discovery")]
+// 信令模块 - 内嵌信令服务器
 pub mod signaling;
 
-#[cfg(feature = "discovery")]
-pub mod connection;
-
-#[cfg(feature = "deploy")]
-pub mod deploy;
+// Web 查看器模块
+pub mod viewer;
