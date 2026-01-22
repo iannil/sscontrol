@@ -4,7 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use cloudflared::Tunnel;
-use tracing::{info, warn};
+use tracing::{info, warn, debug};
 
 /// Cloudflare Tunnel 包装器
 pub struct CloudflareTunnel {
@@ -36,6 +36,11 @@ impl CloudflareTunnel {
 
         let public_url = tunnel.url().to_string();
         info!("Cloudflare Tunnel 公网地址: {}", public_url);
+
+        // 等待隧道稳定建立
+        debug!("等待隧道连接稳定...");
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        debug!("隧道应已稳定");
 
         // 将 https:// 转换为 wss:// (用于 WebSocket)
         let ws_url = public_url.replace("https://", "wss://");

@@ -8,6 +8,7 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         State,
     },
+    http::Method,
     response::{Html, IntoResponse},
     routing::get,
     Router,
@@ -19,6 +20,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
+use tower_http::cors::{Any, CorsLayer};
 
 /// 信令消息类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,12 +215,18 @@ impl EmbeddedSignalingServer {
             state: self.state.clone(),
         };
 
+        // 创建 CORS 层
+        let cors = CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_headers(Any);
+
         // 创建 axum 路由
         let app = Router::new()
-            .route("/", get(health_check))
+            .route("/", get(root_handler))
             .route("/health", get(health_check))
             .route("/ws", get(ws_handler))
-            .fallback(get(ws_handler_fallback))
+            .layer(cors)
             .with_state(app_state);
 
         let addr: SocketAddr = format!("0.0.0.0:{}", self.port).parse()?;
@@ -284,6 +292,22 @@ impl EmbeddedSignalingServer {
     }
 }
 
+/// 根路径处理 - 同时支持健康检查和 WebSocket
+async fn root_handler(
+    ws: Option<WebSocketUpgrade>,
+    State(app_state): State<AppState>,
+) -> impl IntoResponse {
+    tracing::debug!("根路径请求, WebSocket升级: {}", ws.is_some());
+    if let Some(ws) = ws {
+        tracing::info!("接受 WebSocket 连接");
+        ws.on_upgrade(move |socket| handle_socket(socket, app_state))
+            .into_response()
+    } else {
+        tracing::debug!("HTTP 健康检查");
+        Html("sscontrol signaling server - OK").into_response()
+    }
+}
+
 /// 健康检查端点
 async fn health_check() -> impl IntoResponse {
     Html("OK")
@@ -292,19 +316,6 @@ async fn health_check() -> impl IntoResponse {
 /// WebSocket 处理 (路径 /ws)
 async fn ws_handler(ws: WebSocketUpgrade, State(app_state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, app_state))
-}
-
-/// WebSocket 回退处理 (其他路径也接受 WebSocket 连接)
-async fn ws_handler_fallback(
-    ws: Option<WebSocketUpgrade>,
-    State(app_state): State<AppState>,
-) -> impl IntoResponse {
-    if let Some(ws) = ws {
-        ws.on_upgrade(move |socket| handle_socket(socket, app_state))
-            .into_response()
-    } else {
-        Html("sscontrol signaling server").into_response()
-    }
 }
 
 /// 处理 WebSocket 连接

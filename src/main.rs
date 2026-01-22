@@ -818,10 +818,72 @@ fn open_browser(url: &str) -> Result<()> {
 
 /// 获取本机 IP 地址
 fn get_local_ip() -> Option<String> {
-    use std::net::UdpSocket;
+    use std::net::{IpAddr, UdpSocket};
 
+    // Try to get local IP by connecting to a public address
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("8.8.8.8:80").ok()?;
     let local_addr = socket.local_addr().ok()?;
-    Some(local_addr.ip().to_string())
+    let ip = local_addr.ip();
+
+    // Check if it's a valid LAN IP (not WARP/VPN)
+    if is_valid_lan_ip(&ip) {
+        return Some(ip.to_string());
+    }
+
+    // Fallback: try to find a valid LAN IP from all interfaces
+    #[cfg(unix)]
+    {
+        if let Ok(output) = std::process::Command::new("ifconfig").output() {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            for line in output_str.lines() {
+                if line.contains("inet ") && !line.contains("127.0.0.1") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if let Some(idx) = parts.iter().position(|&x| x == "inet") {
+                        if let Some(ip_str) = parts.get(idx + 1) {
+                            if let Ok(parsed_ip) = ip_str.parse::<IpAddr>() {
+                                if is_valid_lan_ip(&parsed_ip) {
+                                    return Some(parsed_ip.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Return the original IP if no better option found
+    Some(ip.to_string())
+}
+
+/// Check if IP is a valid LAN IP (not WARP, VPN, or other virtual interfaces)
+fn is_valid_lan_ip(ip: &std::net::IpAddr) -> bool {
+    if let std::net::IpAddr::V4(ipv4) = ip {
+        let octets = ipv4.octets();
+
+        // Exclude Cloudflare WARP IPs (198.18.0.0/15)
+        if octets[0] == 198 && (octets[1] == 18 || octets[1] == 19) {
+            return false;
+        }
+
+        // Exclude CGNAT range (100.64.0.0/10) - used by some VPNs
+        if octets[0] == 100 && octets[1] >= 64 && octets[1] <= 127 {
+            return false;
+        }
+
+        // Exclude loopback
+        if octets[0] == 127 {
+            return false;
+        }
+
+        // Prefer private IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        let is_private =
+            (octets[0] == 192 && octets[1] == 168) ||
+            (octets[0] == 10) ||
+            (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31);
+
+        return is_private;
+    }
+    false
 }
