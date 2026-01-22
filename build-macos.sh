@@ -21,8 +21,8 @@ cd "$SCRIPT_DIR"
 DIST_DIR="$SCRIPT_DIR/dist"
 mkdir -p "$DIST_DIR"
 
-# Features (完整版本，包含视频编码)
-FEATURES="h264,webrtc,security,service"
+# Features (完整版本，包含视频编码和公网隧道)
+FEATURES="h264,webrtc,security,service,tunnel"
 RELEASE_FLAG="--release"
 
 # 检测本机架构
@@ -111,8 +111,14 @@ summary() {
     info "  被控端 (启动屏幕共享服务):"
     info "     ./sscontrol host [--port 9527]"
     info ""
-    info "  控制端 (连接并查看远程桌面):"
+    info "  被控端 (启用公网隧道):"
+    info "     ./sscontrol host --tunnel"
+    info ""
+    info "  控制端 - 局域网连接:"
     info "     ./sscontrol connect --ip <被控端IP> [--port 9527]"
+    info ""
+    info "  控制端 - 公网连接:"
+    info "     ./sscontrol connect --url wss://xxx.trycloudflare.com"
     echo ""
 }
 

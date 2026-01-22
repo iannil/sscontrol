@@ -52,7 +52,7 @@ echo.
 echo.
 echo [INFO] Building Windows x86_64 (full version)...
 
-set FEATURES=h264,webrtc,security,service
+set FEATURES=h264,webrtc,security,service,tunnel
 cargo build --release --features "%FEATURES%"
 
 if %errorlevel% neq 0 (
@@ -85,8 +85,14 @@ echo.
 echo   Host (start screen sharing):
 echo      sscontrol.exe host [--port 9527]
 echo.
-echo   Viewer (connect to remote desktop):
+echo   Host (with public tunnel):
+echo      sscontrol.exe host --tunnel
+echo.
+echo   Viewer - LAN connection:
 echo      sscontrol.exe connect --ip ^<HOST_IP^> [--port 9527]
+echo.
+echo   Viewer - Public connection:
+echo      sscontrol.exe connect --url wss://xxx.trycloudflare.com
 echo.
 
 endlocal

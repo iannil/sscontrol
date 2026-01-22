@@ -1,17 +1,24 @@
 //! 内嵌信令服务器模块
 //!
-//! 轻量级信令服务器，随被控端启动，用于局域网极简模式
+//! 使用 axum 实现，支持 HTTP 反向代理 (如 Cloudflare Tunnel)
 
 use anyhow::Result;
+use axum::{
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
+    },
+    response::{Html, IntoResponse},
+    routing::get,
+    Router,
+};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, RwLock};
-use tokio_tungstenite::accept_async;
-use tungstenite::protocol::Message;
 
 /// 信令消息类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +94,7 @@ struct ServerState {
     rooms: HashMap<String, Room>,
     clients: HashMap<String, ClientSender>,
     host_event_tx: Option<mpsc::UnboundedSender<HostSignalEvent>>,
+    peer_counter: AtomicU64,
 }
 
 impl ServerState {
@@ -95,7 +103,13 @@ impl ServerState {
             rooms: HashMap::new(),
             clients: HashMap::new(),
             host_event_tx: None,
+            peer_counter: AtomicU64::new(0),
         }
+    }
+
+    fn next_peer_id(&self) -> String {
+        let id = self.peer_counter.fetch_add(1, Ordering::SeqCst);
+        format!("viewer_{}", id)
     }
 
     fn join_room(&mut self, peer_id: String, room_id: String) -> Vec<String> {
@@ -160,6 +174,12 @@ impl ServerState {
     }
 }
 
+/// 共享应用状态
+#[derive(Clone)]
+struct AppState {
+    state: Arc<RwLock<ServerState>>,
+}
+
 /// 内嵌信令服务器
 pub struct EmbeddedSignalingServer {
     port: u16,
@@ -181,10 +201,6 @@ impl EmbeddedSignalingServer {
 
     /// 启动服务器
     pub async fn start(&mut self) -> Result<u16> {
-        let addr: SocketAddr = format!("0.0.0.0:{}", self.port).parse()?;
-        let listener = TcpListener::bind(addr).await?;
-        let actual_port = listener.local_addr()?.port();
-
         let (shutdown_tx, _) = broadcast::channel::<()>(1);
         self.shutdown_tx = Some(shutdown_tx.clone());
 
@@ -193,32 +209,32 @@ impl EmbeddedSignalingServer {
         self.host_event_rx = Some(host_event_rx);
         self.state.write().await.host_event_tx = Some(host_event_tx);
 
-        let state = self.state.clone();
+        let app_state = AppState {
+            state: self.state.clone(),
+        };
+
+        // 创建 axum 路由
+        let app = Router::new()
+            .route("/", get(health_check))
+            .route("/health", get(health_check))
+            .route("/ws", get(ws_handler))
+            .fallback(get(ws_handler_fallback))
+            .with_state(app_state);
+
+        let addr: SocketAddr = format!("0.0.0.0:{}", self.port).parse()?;
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+        let actual_port = listener.local_addr()?.port();
 
         tracing::info!("内嵌信令服务器启动: 0.0.0.0:{}", actual_port);
 
+        let mut shutdown_rx = shutdown_tx.subscribe();
         tokio::spawn(async move {
-            let mut shutdown_rx = shutdown_tx.subscribe();
-            loop {
-                tokio::select! {
-                    result = listener.accept() => {
-                        match result {
-                            Ok((stream, addr)) => {
-                                let peer_id = format!("viewer_{}", addr.port());
-                                let state = state.clone();
-                                tokio::spawn(handle_client(stream, peer_id, state));
-                            }
-                            Err(e) => {
-                                tracing::error!("接受连接失败: {}", e);
-                            }
-                        }
-                    }
-                    _ = shutdown_rx.recv() => {
-                        tracing::info!("内嵌信令服务器关闭");
-                        break;
-                    }
-                }
-            }
+            axum::serve(listener, app)
+                .with_graceful_shutdown(async move {
+                    let _ = shutdown_rx.recv().await;
+                })
+                .await
+                .ok();
         });
 
         Ok(actual_port)
@@ -268,27 +284,42 @@ impl EmbeddedSignalingServer {
     }
 }
 
-/// 处理客户端连接
-async fn handle_client(stream: TcpStream, peer_id: String, state: Arc<RwLock<ServerState>>) {
-    // 首先检查是否是 HTTP 健康检查
-    if let Ok(Some(())) = check_http_request(&stream, &state).await {
-        return;
-    }
+/// 健康检查端点
+async fn health_check() -> impl IntoResponse {
+    Html("OK")
+}
 
-    let ws_stream = match accept_async(stream).await {
-        Ok(ws) => ws,
-        Err(e) => {
-            tracing::debug!("WebSocket 握手失败: {}", e);
-            return;
-        }
+/// WebSocket 处理 (路径 /ws)
+async fn ws_handler(ws: WebSocketUpgrade, State(app_state): State<AppState>) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, app_state))
+}
+
+/// WebSocket 回退处理 (其他路径也接受 WebSocket 连接)
+async fn ws_handler_fallback(
+    ws: Option<WebSocketUpgrade>,
+    State(app_state): State<AppState>,
+) -> impl IntoResponse {
+    if let Some(ws) = ws {
+        ws.on_upgrade(move |socket| handle_socket(socket, app_state))
+            .into_response()
+    } else {
+        Html("sscontrol signaling server").into_response()
+    }
+}
+
+/// 处理 WebSocket 连接
+async fn handle_socket(socket: WebSocket, app_state: AppState) {
+    let peer_id = {
+        let state = app_state.state.read().await;
+        state.next_peer_id()
     };
 
-    let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+    let (mut ws_sender, mut ws_receiver) = socket.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
 
     // 注册客户端
     {
-        let mut state = state.write().await;
+        let mut state = app_state.state.write().await;
         state.clients.insert(peer_id.clone(), ClientSender { sender: tx });
     }
 
@@ -304,7 +335,7 @@ async fn handle_client(stream: TcpStream, peer_id: String, state: Arc<RwLock<Ser
     });
 
     // 接收任务
-    let state_clone = state.clone();
+    let state_clone = app_state.state.clone();
     let peer_id_clone = peer_id.clone();
     let recv_task = tokio::spawn(async move {
         while let Some(msg) = ws_receiver.next().await {
@@ -330,7 +361,7 @@ async fn handle_client(stream: TcpStream, peer_id: String, state: Arc<RwLock<Ser
     }
 
     // 清理
-    let mut state = state.write().await;
+    let mut state = app_state.state.write().await;
     state.clients.remove(&peer_id);
 
     if let Some(room_id) = state.leave_room(&peer_id) {
@@ -342,35 +373,6 @@ async fn handle_client(stream: TcpStream, peer_id: String, state: Arc<RwLock<Ser
     }
 
     tracing::info!("Viewer 断开: {}", peer_id);
-}
-
-/// 检查是否是 HTTP 健康检查请求
-async fn check_http_request(
-    stream: &TcpStream,
-    _state: &Arc<RwLock<ServerState>>,
-) -> Result<Option<()>> {
-    let mut buf = [0u8; 512];
-
-    // peek 检查数据
-    let timeout =
-        tokio::time::timeout(std::time::Duration::from_millis(50), stream.peek(&mut buf)).await;
-
-    let n = match timeout {
-        Ok(Ok(n)) if n > 0 => n,
-        _ => return Ok(None),
-    };
-
-    let request = String::from_utf8_lossy(&buf[..n]);
-
-    // 检查是否是 HTTP 请求且不是 WebSocket 升级
-    if (request.starts_with("GET /health") || request.starts_with("GET / HTTP"))
-        && !request.contains("Upgrade:")
-        && !request.contains("upgrade:")
-    {
-        return Ok(None);
-    }
-
-    Ok(None)
 }
 
 /// 处理信令消息
