@@ -19,6 +19,10 @@ mod service;
 mod signaling;
 mod webrtc;
 
+// 公网隧道模块 (当启用 tunnel feature 时)
+#[cfg(feature = "tunnel")]
+mod tunnel;
+
 // Web 查看器模块
 mod viewer;
 
@@ -75,15 +79,24 @@ enum Commands {
         /// 信令服务器端口 (默认 9527)
         #[arg(short, long, default_value = "9527")]
         port: u16,
+
+        /// 启用公网隧道 (Cloudflare Tunnel)
+        #[cfg(feature = "tunnel")]
+        #[arg(long)]
+        tunnel: bool,
     },
 
-    /// 控制端模式 - 通过 IP 连接被控端
+    /// 控制端模式 - 通过 IP 或公网 URL 连接被控端
     Connect {
-        /// 被控端 IP 地址
-        #[arg(long)]
-        ip: String,
+        /// 被控端 IP 地址 (局域网模式)
+        #[arg(long, conflicts_with = "url")]
+        ip: Option<String>,
 
-        /// 被控端端口 (默认 9527)
+        /// 被控端公网 URL (隧道模式，如 wss://xxx.trycloudflare.com)
+        #[arg(long, conflicts_with = "ip")]
+        url: Option<String>,
+
+        /// 被控端端口 (仅 --ip 时使用，默认 9527)
         #[arg(short, long, default_value = "9527")]
         port: u16,
     },
@@ -119,13 +132,19 @@ async fn main() -> Result<()> {
             Commands::Service { action } => {
                 handle_service_command(action)
             }
+            #[cfg(feature = "tunnel")]
+            Commands::Host { port, tunnel } => {
+                init_logging(args.verbose.unwrap_or(1));
+                run_host_mode(port, tunnel).await
+            }
+            #[cfg(not(feature = "tunnel"))]
             Commands::Host { port } => {
                 init_logging(args.verbose.unwrap_or(1));
                 run_host_mode(port).await
             }
-            Commands::Connect { ip, port } => {
+            Commands::Connect { ip, url, port } => {
                 init_logging(args.verbose.unwrap_or(1));
-                run_connect_mode(&ip, port).await
+                run_connect_mode(ip.as_deref(), url.as_deref(), port).await
             }
         };
     }
@@ -134,8 +153,9 @@ async fn main() -> Result<()> {
     println!("sscontrol - 无界面远程桌面应用");
     println!();
     println!("用法:");
-    println!("  被控端: sscontrol host [--port 9527]");
+    println!("  被控端: sscontrol host [--port 9527] [--tunnel]");
     println!("  控制端: sscontrol connect --ip <IP> [--port 9527]");
+    println!("          sscontrol connect --url <URL>");
     println!();
     println!("运行 'sscontrol --help' 查看更多选项");
 
@@ -338,8 +358,37 @@ async fn run_main_loop(config: config::Config) -> Result<()> {
 // 被控端/控制端模式
 // ============================================================================
 
+/// 打印仅局域网模式的连接信息
+fn print_local_only_info(local_ip: &str, port: u16) {
+    println!();
+    println!("========================================");
+    println!("  sscontrol 被控端已启动");
+    println!("========================================");
+    println!();
+    println!("  本机 IP: {}", local_ip);
+    println!("  端口:    {}", port);
+    println!();
+    println!("控制端连接命令:");
+    println!("  sscontrol connect --ip {} --port {}", local_ip, port);
+    println!();
+    println!("等待连接中... (按 Ctrl+C 退出)");
+    println!();
+}
+
 /// 被控端模式 - 启动内嵌信令服务器
+#[cfg(feature = "tunnel")]
+async fn run_host_mode(port: u16, enable_tunnel: bool) -> Result<()> {
+    run_host_mode_impl(port, enable_tunnel).await
+}
+
+/// 被控端模式 - 启动内嵌信令服务器 (无隧道支持)
+#[cfg(not(feature = "tunnel"))]
 async fn run_host_mode(port: u16) -> Result<()> {
+    run_host_mode_impl(port, false).await
+}
+
+/// 被控端模式实现
+async fn run_host_mode_impl(port: u16, #[allow(unused)] enable_tunnel: bool) -> Result<()> {
     use signaling::{EmbeddedSignalingServer, HostSignalEvent};
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -363,20 +412,46 @@ async fn run_host_mode(port: u16) -> Result<()> {
     // 获取本机 IP 地址
     let local_ip = get_local_ip().unwrap_or_else(|| "127.0.0.1".to_string());
 
-    // 打印连接信息
-    println!();
-    println!("========================================");
-    println!("  sscontrol 被控端已启动");
-    println!("========================================");
-    println!();
-    println!("  本机 IP: {}", local_ip);
-    println!("  端口:    {}", actual_port);
-    println!();
-    println!("控制端连接命令:");
-    println!("  sscontrol connect --ip {} --port {}", local_ip, actual_port);
-    println!();
-    println!("等待连接中... (按 Ctrl+C 退出)");
-    println!();
+    // 启动公网隧道 (如果启用)
+    #[cfg(feature = "tunnel")]
+    let _tunnel = if enable_tunnel {
+        info!("正在创建 Cloudflare Tunnel...");
+        let mut cf_tunnel = tunnel::CloudflareTunnel::new();
+        match cf_tunnel.start(actual_port) {
+            Ok(tunnel_url) => {
+                // 打印连接信息 (带隧道)
+                println!();
+                println!("========================================");
+                println!("  sscontrol 被控端已启动");
+                println!("========================================");
+                println!();
+                println!("  本机 IP: {}", local_ip);
+                println!("  端口:    {}", actual_port);
+                println!();
+                println!("局域网连接:");
+                println!("  sscontrol connect --ip {} --port {}", local_ip, actual_port);
+                println!();
+                println!("公网连接 (Cloudflare Tunnel):");
+                println!("  sscontrol connect --url {}", tunnel_url);
+                println!();
+                println!("等待连接中... (按 Ctrl+C 退出)");
+                println!();
+                Some(cf_tunnel)
+            }
+            Err(e) => {
+                error!("创建 Cloudflare Tunnel 失败: {}", e);
+                warn!("将仅使用局域网模式");
+                print_local_only_info(&local_ip, actual_port);
+                None
+            }
+        }
+    } else {
+        print_local_only_info(&local_ip, actual_port);
+        None
+    };
+
+    #[cfg(not(feature = "tunnel"))]
+    print_local_only_info(&local_ip, actual_port);
 
     // 检查屏幕录制权限 (macOS)
     #[cfg(target_os = "macos")]
@@ -661,14 +736,24 @@ async fn run_host_mode(port: u16) -> Result<()> {
     Ok(())
 }
 
-/// 控制端模式 - 通过 IP 连接被控端
-async fn run_connect_mode(ip: &str, port: u16) -> Result<()> {
+/// 控制端模式 - 通过 IP 或公网 URL 连接被控端
+async fn run_connect_mode(ip: Option<&str>, url: Option<&str>, port: u16) -> Result<()> {
     use viewer::WebViewer;
 
     info!("sscontrol 控制端模式启动...");
-    info!("目标地址: {}:{}", ip, port);
 
-    let ws_url = format!("ws://{}:{}", ip, port);
+    // 构建 WebSocket URL
+    let (ws_url, display_target) = if let Some(url) = url {
+        // 公网 URL 模式
+        info!("目标地址: {} (公网隧道)", url);
+        (url.to_string(), url.to_string())
+    } else if let Some(ip) = ip {
+        // 局域网 IP 模式
+        info!("目标地址: {}:{}", ip, port);
+        (format!("ws://{}:{}", ip, port), format!("{}:{}", ip, port))
+    } else {
+        anyhow::bail!("必须指定 --ip 或 --url 参数");
+    };
 
     println!();
     println!("========================================");
@@ -682,7 +767,7 @@ async fn run_connect_mode(ip: &str, port: u16) -> Result<()> {
 
     let viewer_url = format!("http://127.0.0.1:{}", viewer_port);
 
-    println!("  被控端: {}:{}", ip, port);
+    println!("  被控端: {}", display_target);
     println!("  查看器: {}", viewer_url);
     println!();
 
