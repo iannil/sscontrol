@@ -177,7 +177,9 @@ impl Capturer for DXGICapturer {
                     // 获取成功
                 }
                 Err(e) if e.code() == DXGI_ERROR_WAIT_TIMEOUT => {
-                    // 超时，没有新帧，返回空帧
+                    // 超时是正常行为 - 屏幕没有更新时会发生
+                    // 使用 debug 级别而不是 error，因为这不是错误
+                    tracing::debug!("DXGI 无新帧 (屏幕未更新)");
                     return Err(anyhow!("等待帧超时"));
                 }
                 Err(e) if e.code() == DXGI_ERROR_ACCESS_LOST => {
@@ -187,6 +189,7 @@ impl Capturer for DXGICapturer {
                     return Err(anyhow!("DXGI 访问丢失，已重新获取"));
                 }
                 Err(e) => {
+                    tracing::error!("DXGI 获取帧失败: {:?}", e);
                     return Err(anyhow!("获取帧失败: {:?}", e));
                 }
             }

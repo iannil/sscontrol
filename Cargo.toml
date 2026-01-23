@@ -34,7 +34,7 @@ bytes = { version = "1.5", optional = true }
 
 # Security (optional, use --features security to enable)
 tokio-rustls = { version = "0.25", optional = true }
-rustls = { version = "0.23", optional = true }
+rustls = { version = "0.23", optional = true, features = ["ring"] }
 rustls-pemfile = { version = "2.0", optional = true }
 rustls-native-certs = { version = "0.7", optional = true }
 

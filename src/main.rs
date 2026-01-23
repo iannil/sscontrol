@@ -35,7 +35,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing::Level;
 
 /// sscontrol - 命令行参数
@@ -119,6 +119,12 @@ enum ServiceCommands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // 安装 rustls CryptoProvider (webrtc-rs 需要)
+    #[cfg(any(feature = "webrtc", feature = "security"))]
+    {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+
     // 解析命令行参数
     let args = Args::parse();
 
@@ -687,7 +693,12 @@ async fn run_host_mode_impl(port: u16, #[allow(unused)] enable_tunnel: bool) -> 
                             }
                         }
                         Err(e) => {
-                            error!("屏幕捕获失败: {}", e);
+                            // 超时是正常的，屏幕未更新时发生
+                            if e.to_string().contains("超时") {
+                                debug!("屏幕捕获超时 (屏幕未更新)");
+                            } else {
+                                error!("屏幕捕获失败: {}", e);
+                            }
                         }
                     }
                 }
