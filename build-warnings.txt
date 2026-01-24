@@ -1,0 +1,161 @@
+   Compiling cloudflared v0.0.3
+   Compiling sscontrol v0.1.0 (E:\Code\sscontrol)
+error[E0432]: unresolved imports `ed25519_dalek::Keypair`, `ed25519_dalek::PublicKey`
+  --> src\pairing\qr.rs:12:21
+   |
+12 | use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature, Signer, Verifier};
+   |                     ^^^^^^^  ^^^^^^^^^ no `PublicKey` in the root
+   |                     |
+   |                     no `Keypair` in the root
+   |
+   = help: consider importing one of these items instead:
+           rustls::pki_types::pem::SectionKind::PublicKey
+           x25519_dalek::PublicKey
+
+warning: unused import: `ice_transport::ice_server::RTCIceServer`
+  --> src\webrtc\host_session.rs:26:5
+   |
+26 |     ice_transport::ice_server::RTCIceServer,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ice_server::RTCIceServer`
+  --> src\webrtc\peer_connection.rs:29:9
+   |
+29 |         ice_server::RTCIceServer,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `NatType`
+ --> src\nat\predictive_punching.rs:5:41
+  |
+5 | use crate::nat::detector::{NatBehavior, NatType, PortAllocationPattern};
+  |                                         ^^^^^^^
+
+warning: unexpected `cfg` condition value: `image`
+   --> src\pairing\qr.rs:104:11
+    |
+104 |     #[cfg(feature = "image")]
+    |           ^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `discovery`, `ffmpeg-next`, `h264`, `pairing`, `security`, `service`, `tunnel`, `ui`, and `webrtc`
+    = help: consider adding `image` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+error[E0599]: no function or associated item named `from_bytes` found for array `[u8; 32]` in the current scope
+  --> src\pairing\qr.rs:53:33
+   |
+53 |         let secret = SecretKey::from_bytes(secret_key)?;
+   |                                 ^^^^^^^^^^ function or associated item not found in `[u8; 32]`
+   |
+help: there is an associated function `from_be_bytes` with a similar name
+   |
+53 |         let secret = SecretKey::from_be_bytes(secret_key)?;
+   |                                       +++
+
+error[E0277]: the `?` operator can only be applied to values that implement `Try`
+  --> src\pairing\qr.rs:82:19
+   |
+82 |         let url = self.encode_to_url(data)?;
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^ the `?` operator cannot be applied to type `std::string::String`
+   |
+   = help: the trait `Try` is not implemented for `std::string::String`
+
+error[E0599]: no method named `len` found for enum `qrcode::Color` in the current scope
+  --> src\pairing\qr.rs:89:45
+   |
+89 |         let width = if height > 0 { rows[0].len() } else { 0 };
+   |                                             ^^^ method not found in `qrcode::Color`
+
+error[E0608]: cannot index into a value of type `qrcode::Color`
+  --> src\pairing\qr.rs:93:37
+   |
+93 |                 let module = rows[y][x];
+   |                                     ^^^
+
+warning: unreachable expression
+   --> src\pairing\qr.rs:164:13
+    |
+164 |             return anyhow::bail!("Invalid URL format");
+    |             ^^^^^^^-----------------------------------
+    |             |      |
+    |             |      any code following this expression is unreachable
+    |             unreachable expression
+    |
+    = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+error[E0599]: no method named `into_owned` found for enum `Result<T, E>` in the current scope
+   --> src\pairing\qr.rs:182:76
+    |
+182 |                 "device_id" => device_id = Some(urlencoding::decode(value).into_owned()?),
+    |                                                                            ^^^^^^^^^^
+    |
+note: the method `into_owned` exists on the type `Cow<'_, str>`
+   --> C:\Users\huhet\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\borrow.rs:323:5
+    |
+323 |     pub fn into_owned(self) -> <B as ToOwned>::Owned {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `Cow<'_, str>` value, propagating a `Result::Err` value to the caller
+    |
+182 |                 "device_id" => device_id = Some(urlencoding::decode(value)?.into_owned()?),
+    |                                                                           +
+help: there is a method `to_owned` with a similar name
+    |
+182 -                 "device_id" => device_id = Some(urlencoding::decode(value).into_owned()?),
+182 +                 "device_id" => device_id = Some(urlencoding::decode(value).to_owned()?),
+    |
+
+error[E0599]: no method named `into_owned` found for enum `Result<T, E>` in the current scope
+   --> src\pairing\qr.rs:183:77
+    |
+183 |                 "code" => connection_code = Some(urlencoding::decode(value).into_owned()?),
+    |                                                                             ^^^^^^^^^^
+    |
+note: the method `into_owned` exists on the type `Cow<'_, str>`
+   --> C:\Users\huhet\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\borrow.rs:323:5
+    |
+323 |     pub fn into_owned(self) -> <B as ToOwned>::Owned {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `Cow<'_, str>` value, propagating a `Result::Err` value to the caller
+    |
+183 |                 "code" => connection_code = Some(urlencoding::decode(value)?.into_owned()?),
+    |                                                                            +
+help: there is a method `to_owned` with a similar name
+    |
+183 -                 "code" => connection_code = Some(urlencoding::decode(value).into_owned()?),
+183 +                 "code" => connection_code = Some(urlencoding::decode(value).to_owned()?),
+    |
+
+error[E0277]: the `?` operator can only be applied to values that implement `Try`
+   --> src\pairing\qr.rs:197:42
+    |
+197 |                         signature = Some(Signature::from_bytes(&sig_bytes.try_into().unwrap())?);
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the `?` operator cannot be applied to type `Signature`
+    |
+    = help: the trait `Try` is not implemented for `Signature`
+
+warning: unreachable expression
+   --> src\pairing\qr.rs:272:13
+    |
+272 |             return anyhow::bail!("Invalid key format");
+    |             ^^^^^^^-----------------------------------
+    |             |      |
+    |             |      any code following this expression is unreachable
+    |             unreachable expression
+
+error[E0599]: no function or associated item named `from_bytes` found for array `[u8; 32]` in the current scope
+   --> src\pairing\qr.rs:276:33
+    |
+276 |         let secret = SecretKey::from_bytes(&secret_bytes.try_into()?)?;
+    |                                 ^^^^^^^^^^ function or associated item not found in `[u8; 32]`
+    |
+help: there is an associated function `from_be_bytes` with a similar name
+    |
+276 |         let secret = SecretKey::from_be_bytes(&secret_bytes.try_into()?)?;
+    |                                       +++
+
+Some errors have detailed explanations: E0277, E0432, E0599, E0608.
+For more information about an error, try `rustc --explain E0277`.
+warning: `sscontrol` (lib) generated 6 warnings
+error: could not compile `sscontrol` (lib) due to 9 previous errors; 6 warnings emitted

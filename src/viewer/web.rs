@@ -191,7 +191,9 @@ fn get_viewer_html(signaling_url: &str) -> String {
 
     <div class="container">
         <div id="video-container">
-            <video id="remote-video" autoplay playsinline></video>
+            <!-- 使用 canvas 显示视频流 -->
+            <canvas id="video-canvas"></canvas>
+            <img id="video-image" style="display: none;">
             <div class="placeholder" id="placeholder">
                 <div class="spinner"></div>
                 <p>等待视频流...</p>
@@ -207,18 +209,16 @@ fn get_viewer_html(signaling_url: &str) -> String {
 
     <script>
         const SIGNALING_URL = '{signaling_url}';
-        const ROOM_ID = 'default';
 
         let ws = null;
-        let pc = null;
-        let myPeerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
-        let hostPeerId = null;
-
-        const video = document.getElementById('remote-video');
+        let canvas, ctx;
+        let imageElement;
         const placeholder = document.getElementById('placeholder');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
         const logDiv = document.getElementById('log');
+        let frameCount = 0;
+        let lastFpsTime = Date.now();
 
         function log(msg) {{
             console.log(msg);
@@ -244,187 +244,88 @@ fn get_viewer_html(signaling_url: &str) -> String {
             logDiv.classList.toggle('show');
         }}
 
-        // 连接信令服务器
-        function connectSignaling() {{
-            log('连接信令服务器: ' + SIGNALING_URL);
-            ws = new WebSocket(SIGNALING_URL);
+        // 连接视频流
+        function connectVideoStream() {{
+            log('连接视频流: ' + SIGNALING_URL);
 
-            ws.onopen = () => {{
-                log('信令服务器已连接');
-                setStatus(false, '已连接信令服务器');
-                // 加入房间
-                ws.send(JSON.stringify({{ type: 'join', room_id: ROOM_ID }}));
-            }};
+            // 将信令 URL 转换为视频流 URL
+            const streamUrl = SIGNALING_URL.replace('/ws', '/video-stream');
 
-            ws.onmessage = async (event) => {{
-                const msg = JSON.parse(event.data);
-                log('收到消息: ' + msg.type);
+            canvas = document.getElementById('video-canvas');
+            ctx = canvas.getContext('2d');
+            imageElement = document.getElementById('video-image');
 
-                switch (msg.type) {{
-                    case 'peers':
-                        // 房间中的现有成员 - 查找 host
-                        const hostPeer = msg.peers.find(p => p.id === 'host');
-                        if (hostPeer) {{
-                            hostPeerId = 'host';
-                            log('发现被控端 (host)');
-                            await createPeerConnection();
-                            await createOffer();
-                        }} else {{
-                            log('等待被控端加入...');
-                        }}
-                        break;
-
-                    case 'new_peer':
-                        // 新成员加入（可能是被控端）
-                        if (!hostPeerId) {{
-                            hostPeerId = msg.peer_id;
-                            log('被控端已加入: ' + hostPeerId);
-                            await createPeerConnection();
-                            await createOffer();
-                        }}
-                        break;
-
-                    case 'peer_left':
-                        if (msg.peer_id === hostPeerId) {{
-                            log('被控端已断开');
-                            hostPeerId = null;
-                            setStatus(false, '被控端已断开');
-                            if (pc) {{
-                                pc.close();
-                                pc = null;
-                            }}
-                            placeholder.classList.remove('hidden');
-                        }}
-                        break;
-
-                    case 'answer':
-                        if (pc && msg.from === hostPeerId) {{
-                            log('收到 Answer');
-                            await pc.setRemoteDescription({{ type: 'answer', sdp: msg.sdp }});
-                        }}
-                        break;
-
-                    case 'ice':
-                        if (pc && msg.from === hostPeerId) {{
-                            log('收到 ICE 候选');
-                            await pc.addIceCandidate({{
-                                candidate: msg.candidate,
-                                sdpMid: msg.sdp_mid,
-                                sdpMLineIndex: msg.sdp_mline_index
-                            }});
-                        }}
-                        break;
-
-                    case 'offer':
-                        // 如果收到 offer，说明对方想主动发起连接
-                        if (msg.from !== myPeerId) {{
-                            hostPeerId = msg.from;
-                            log('收到 Offer from: ' + hostPeerId);
-                            await createPeerConnection();
-                            await pc.setRemoteDescription({{ type: 'offer', sdp: msg.sdp }});
-                            const answer = await pc.createAnswer();
-                            await pc.setLocalDescription(answer);
-                            ws.send(JSON.stringify({{
-                                type: 'answer',
-                                from: myPeerId,
-                                to: hostPeerId,
-                                sdp: answer.sdp
-                            }}));
-                        }}
-                        break;
+            // 发送请求获取视频流
+            fetch(streamUrl).then(response => {{
+                if (!response.ok) {{
+                    throw new Error('无法连接视频流');
                 }}
-            }};
+                // 使用 reader 读取流
+                const reader = response.body.getReader();
 
-            ws.onclose = () => {{
-                log('信令连接断开');
-                setStatus(false, '连接断开');
+                function read() {{
+                    reader.read().then(({{ done, value }}) => {{
+                        if (done) {{
+                            log('视频流结束');
+                            return;
+                        }}
+
+                        // value 是 Uint8Array，包含 JPEG 数据
+                        if (value && value.length > 0) {{
+                            const blob = new Blob([value], {{ type: 'image/jpeg' }});
+                            const url = URL.createObjectURL(blob);
+
+                            imageElement.onload = () => {{
+                                // 设置 canvas 大小匹配图片
+                                if (canvas.width !== imageElement.naturalWidth ||
+                                    canvas.height !== imageElement.naturalHeight) {{
+                                    canvas.width = imageElement.naturalWidth;
+                                    canvas.height = imageElement.naturalHeight;
+                                }}
+
+                                // 绘制图片
+                                ctx.drawImage(imageElement, 0, 0);
+
+                                // 释放 URL
+                                URL.revokeObjectURL(url);
+
+                                // 隐藏占位符
+                                placeholder.classList.add('hidden');
+                                setStatus(true, '已连接');
+
+                                // 计算 FPS
+                                frameCount++;
+                                const now = Date.now();
+                                if (now - lastFpsTime >= 1000) {{
+                                    const fps = Math.round(frameCount * 1000 / (now - lastFpsTime));
+                                    statusText.textContent = `已连接 ({{fps}} FPS)`;
+                                    frameCount = 0;
+                                    lastFpsTime = now;
+                                }}
+                            }};
+
+                            imageElement.src = url;
+                        }}
+
+                        // 继续读取下一帧
+                        read();
+                    }});
+                }}
+
+                read();
+                log('视频流已开始');
+                setStatus(false, '接收视频流...');
+            }}).catch(error => {{
+                log('视频流错误: ' + error.message);
+                setStatus(false, '连接失败');
+
                 // 5秒后重连
-                setTimeout(connectSignaling, 5000);
-            }};
-
-            ws.onerror = (err) => {{
-                log('信令错误: ' + err);
-            }};
-        }}
-
-        // 创建 PeerConnection
-        async function createPeerConnection() {{
-            const config = {{
-                iceServers: [
-                    {{ urls: 'stun:stun.l.google.com:19302' }}
-                ]
-            }};
-
-            pc = new RTCPeerConnection(config);
-
-            pc.onicecandidate = (event) => {{
-                if (event.candidate && hostPeerId) {{
-                    log('发送 ICE 候选');
-                    ws.send(JSON.stringify({{
-                        type: 'ice',
-                        from: myPeerId,
-                        to: hostPeerId,
-                        candidate: event.candidate.candidate,
-                        sdp_mid: event.candidate.sdpMid || '',
-                        sdp_mline_index: event.candidate.sdpMLineIndex || 0
-                    }}));
-                }}
-            }};
-
-            pc.ontrack = (event) => {{
-                log('收到视频轨道');
-                video.srcObject = event.streams[0];
-                placeholder.classList.add('hidden');
-                setStatus(true, '已连接');
-            }};
-
-            pc.oniceconnectionstatechange = () => {{
-                log('ICE 状态: ' + pc.iceConnectionState);
-                if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {{
-                    setStatus(false, 'ICE 连接失败');
-                }}
-            }};
-
-            // 添加收发器以接收视频
-            pc.addTransceiver('video', {{ direction: 'recvonly' }});
-        }}
-
-        // 创建 Offer
-        async function createOffer() {{
-            log('创建 Offer');
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            ws.send(JSON.stringify({{
-                type: 'offer',
-                from: myPeerId,
-                to: hostPeerId,
-                sdp: offer.sdp
-            }}));
-        }}
-
-        // 发送输入事件
-        function setupInputHandlers() {{
-            video.addEventListener('mousemove', (e) => {{
-                if (!ws || ws.readyState !== WebSocket.OPEN) return;
-                const rect = video.getBoundingClientRect();
-                const x = (e.clientX - rect.left) / rect.width;
-                const y = (e.clientY - rect.top) / rect.height;
-                // 通过数据通道发送鼠标位置 (TODO: 实现数据通道)
-            }});
-
-            video.addEventListener('click', (e) => {{
-                // TODO: 发送鼠标点击事件
-            }});
-
-            document.addEventListener('keydown', (e) => {{
-                // TODO: 发送键盘事件
+                setTimeout(connectVideoStream, 5000);
             }});
         }}
 
         // 启动
-        connectSignaling();
-        setupInputHandlers();
+        connectVideoStream();
     </script>
 </body>
 </html>"#, signaling_url = signaling_url)

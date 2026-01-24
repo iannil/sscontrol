@@ -2,7 +2,24 @@
 //!
 //! 提供视频帧编码功能
 
+// H.264/VP8 编码器需要 FFmpeg，尚未完全集成，标记为允许死代码
 #![allow(dead_code)]
+
+// 硬件编码器抽象层
+pub mod hardware;
+
+// 平台特定的硬件编码器
+#[cfg(target_os = "macos")]
+pub mod videotoolbox;
+
+#[cfg(target_os = "windows")]
+pub mod nvenc;
+
+#[cfg(target_os = "windows")]
+pub mod amf;
+
+#[cfg(target_os = "windows")]
+pub mod qsv;
 
 use crate::capture::Frame;
 use anyhow::Result;
@@ -32,6 +49,14 @@ pub trait Encoder: Send {
 
     /// 刷新编码器缓冲区
     fn flush(&mut self) -> Result<Option<EncodedPacket>>;
+
+    /// 设置码率 (kbps)
+    ///
+    /// 默认实现：不支持动态码率调整
+    /// 编码器可以重写此方法以实现动态码率调整
+    fn set_bitrate(&mut self, _bitrate_kbps: u32) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// 简单编码器 - 直接传输原始帧数据
@@ -175,7 +200,7 @@ impl H264Encoder {
             .ok_or_else(|| anyhow!("找不到 H.264 编码器"))?;
 
         // 配置编码器
-        let mut context = ffmpeg::codec::context::Context::new_with_codec(encoder);
+        let context = ffmpeg::codec::context::Context::new_with_codec(encoder);
         let mut encoder_context = context.encoder().video()?;
 
         encoder_context.set_bit_rate((bitrate * 1000) as usize);
@@ -344,6 +369,26 @@ impl Encoder for H264Encoder {
         }
         Ok(None)
     }
+
+    fn set_bitrate(&mut self, bitrate_kbps: u32) -> Result<()> {
+        // 尝试动态调整 FFmpeg 编码器的码率
+        // 注意: 不是所有编码器都支持运行时码率调整
+        if let Some(encoder) = self.encoder.as_mut() {
+            // 更新内部记录
+            self.bitrate = bitrate_kbps;
+
+            // 尝试设置编码器码率 (以 bps 为单位)
+            let bitrate_bps = bitrate_kbps as usize * 1000;
+
+            // 通过 FFmpeg 的全局质量/码率设置来调整
+            // 注意: 这种方式对 x264 等编码器可能不会立即生效
+            tracing::debug!("尝试调整 H.264 编码器码率: {} kbps", bitrate_kbps);
+
+            // FFmpeg 的编码器通常不支持运行时码率调整
+            // 这里我们仅记录码率变化，实际效果取决于编码器实现
+        }
+        Ok(())
+    }
 }
 
 /// H264Encoder 类型别名 (当 h264 feature 未启用时使用 SimpleEncoder)
@@ -389,7 +434,7 @@ impl VP8Encoder {
             .ok_or_else(|| anyhow!("找不到 VP8 编码器 (需要 libvpx)"))?;
 
         // 配置编码器
-        let mut context = ffmpeg::codec::context::Context::new_with_codec(encoder);
+        let context = ffmpeg::codec::context::Context::new_with_codec(encoder);
         let mut encoder_context = context.encoder().video()?;
 
         encoder_context.set_bit_rate((bitrate * 1000) as usize);

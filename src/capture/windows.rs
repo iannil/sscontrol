@@ -77,7 +77,7 @@ impl WindowsCapturer {
             }
 
             // 创建位图
-            let mut bmi = BITMAPINFO {
+            let bmi = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                     biWidth: self.width as i32,

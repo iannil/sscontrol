@@ -17,8 +17,12 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 #[cfg(feature = "webrtc")]
 use webrtc::{
-    api::APIBuilder,
+    api::{
+        setting_engine::SettingEngine,
+        APIBuilder,
+    },
     data_channel::RTCDataChannel,
+    ice::network_type::NetworkType,
     ice_transport::{
         ice_candidate::RTCIceCandidateInit,
         ice_connection_state::RTCIceConnectionState,
@@ -46,22 +50,12 @@ pub struct RealPeerConnection {
 impl RealPeerConnection {
     /// 创建新的 PeerConnection
     pub async fn new(config: WebRTCConfig) -> Result<Self> {
-        // 构建 ICE 服务器配置
-        let mut ice_servers = Vec::new();
-        for stun_url in &config.stun_servers {
-            ice_servers.push(RTCIceServer {
-                urls: vec![stun_url.clone()],
-                ..Default::default()
-            });
-        }
-        for turn_server in &config.turn_servers {
-            ice_servers.push(RTCIceServer {
-                urls: vec![turn_server.url.clone()],
-                username: turn_server.username.clone(),
-                credential: turn_server.password.clone().into(),
-                ..Default::default()
-            });
-        }
+        // 构建 ICE 服务器配置 - 零第三方依赖
+        //
+        // sscontrol 2.0 使用纯 P2P 架构，无需 STUN/TURN 服务器
+        // 忽略 config 中的 stun_servers 和 turn_servers
+        // NAT 穿透通过主动探测和预测性打洞实现
+        let ice_servers = vec![]; // 零第三方依赖
 
         // 创建 PeerConnection 配置
         let rtc_config = RTCConfiguration {
@@ -69,8 +63,14 @@ impl RealPeerConnection {
             ..Default::default()
         };
 
+        // 创建设置引擎 - 禁用 IPv6，只使用 IPv4 UDP
+        let mut setting_engine = SettingEngine::default();
+        setting_engine.set_network_types(vec![NetworkType::Udp4]);
+
         // 创建 API
-        let api = APIBuilder::new().build();
+        let api = APIBuilder::new()
+            .with_setting_engine(setting_engine)
+            .build();
 
         let pc = Arc::new(
             api.new_peer_connection(rtc_config)
@@ -152,6 +152,13 @@ impl RealPeerConnection {
             if let Some(cand) = c {
                 let cand_init = cand.to_json();
                 if let Ok(init) = cand_init {
+                    // 过滤无效的链路本地地址 (169.254.x.x)
+                    let candidate_str = &init.candidate;
+                    if candidate_str.contains("169.254.") {
+                        tracing::debug!("过滤链路本地地址候选: {}", candidate_str);
+                        return Box::pin(async {});
+                    }
+
                     f(Some(IceCandidate {
                         candidate: init.candidate,
                         sdp_mid: init.sdp_mid.unwrap_or_default(),

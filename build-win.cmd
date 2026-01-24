@@ -16,14 +16,14 @@ cargo build --release --features "h264,webrtc,security,service,tunnel"
 if %errorlevel% equ 0 (
     echo.
     echo Build successful!
-    set DIST_DIR=E:\Code\sscontrol\dist\windows-x86_64
-    if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
-    copy /y "E:\Code\sscontrol\target\release\sscontrol.exe" "%DIST_DIR%\sscontrol.exe"
-    echo Output: %DIST_DIR%\sscontrol.exe
+    set DIST_DIR=dist\windows-x86_64
+    if not exist "!DIST_DIR!" mkdir "!DIST_DIR!"
+    copy /y "target\release\sscontrol.exe" "!DIST_DIR!\sscontrol.exe"
+    echo Output: !DIST_DIR!\sscontrol.exe
 
     rem Copy FFmpeg DLLs
-    copy /y "%FFMPEG_DIR%\bin\*.dll" "%DIST_DIR%\" >nul 2>&1
-    echo FFmpeg DLLs copied to %DIST_DIR%
+    copy /y "%FFMPEG_DIR%\bin\*.dll" "!DIST_DIR!\" >nul 2>&1
+    echo FFmpeg DLLs copied to !DIST_DIR!
 ) else (
     echo Build failed with error level %errorlevel%
 )

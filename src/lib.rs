@@ -11,8 +11,20 @@ pub mod security;
 pub mod service;
 pub mod webrtc;
 
+// NAT 穿透模块 (零依赖)
+pub mod nat;
+
+// 质量优化模块
+pub mod quality;
+
+// 命令行工具模块
+pub mod tools;
+
 #[cfg(feature = "discovery")]
 pub mod discovery;
+
+#[cfg(feature = "pairing")]
+pub mod pairing;
 
 // 信令模块 - 内嵌信令服务器
 pub mod signaling;

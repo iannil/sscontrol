@@ -1,0 +1,189 @@
+[2m2026-01-24T04:09:04.162132Z[0m [32m INFO[0m sscontrol 被控端模式启动...
+[2m2026-01-24T04:09:04.269483Z[0m [33m WARN[0m 配置文件不存在: "config.toml", 使用默认配置
+[2m2026-01-24T04:09:04.272112Z[0m [32m INFO[0m 内嵌信令服务器启动: 0.0.0.0:9527
+
+========================================
+  sscontrol 被控端已启动
+========================================
+
+  本机 IP: 192.168.31.213
+  端口:    9527
+
+控制端连接命令:
+  sscontrol connect --ip 192.168.31.213 --port 9527
+
+等待连接中... (按 Ctrl+C 退出)
+
+[2m2026-01-24T04:09:04.285620Z[0m [32m INFO[0m 初始化屏幕捕获器...
+[2m2026-01-24T04:09:04.413536Z[0m [32m INFO[0m 接受 WebSocket 连接
+[2m2026-01-24T04:09:04.414785Z[0m [32m INFO[0m Viewer 连接: viewer_0
+[2m2026-01-24T04:09:04.422171Z[0m [32m INFO[0m Viewer viewer_0 加入房间 default
+[2m2026-01-24T04:09:04.446467Z[0m [32m INFO[0m DXGI 捕获器初始化: 3840x2160 (显示器 0)
+[2m2026-01-24T04:09:04.447297Z[0m [32m INFO[0m 使用 DXGI Desktop Duplication 捕获
+[2m2026-01-24T04:09:04.447451Z[0m [32m INFO[0m 屏幕尺寸: 3840x2160
+[2m2026-01-24T04:09:04.447546Z[0m [32m INFO[0m 初始化输入模拟器...
+[2m2026-01-24T04:09:04.447619Z[0m [32m INFO[0m Windows 输入模拟器初始化: 3840x2160
+[2m2026-01-24T04:09:04.447763Z[0m [33m WARN[0m VP8 编码器不可用，视频流功能禁用
+[2m2026-01-24T04:09:04.447763Z[0m [32m INFO[0m Viewer 加入: viewer_0
+  [+] Viewer 连接: viewer_0
+[2m2026-01-24T04:09:04.471329Z[0m [32m INFO[0m 收到 Offer from: viewer_0
+[2m2026-01-24T04:09:04.472818Z[0m [32m INFO[0m signaling state changed to have-remote-offer
+[2m2026-01-24T04:09:04.475717Z[0m [32m INFO[0m mDNS is using 0.0.0.0:5353 as dest_addr
+[2m2026-01-24T04:09:04.482938Z[0m [32m INFO[0m [controlled]: Setting new connection state: Checking
+[2m2026-01-24T04:09:04.483149Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:04.483562Z[0m [32m INFO[0m signaling state changed to stable
+[2m2026-01-24T04:09:04.483951Z[0m [32m INFO[0m 已发送 Answer to: viewer_0
+[2m2026-01-24T04:09:04.484069Z[0m [32m INFO[0m WebRTC 会话已建立: viewer_0
+[2m2026-01-24T04:09:04.484093Z[0m [32m INFO[0m Looping and listening Ok(0.0.0.0:5353)
+[2m2026-01-24T04:09:04.484368Z[0m [32m INFO[0m ICE connection state changed: checking
+[2m2026-01-24T04:09:04.484793Z[0m [32m INFO[0m peer connection state changed: connecting
+[2m2026-01-24T04:09:04.484520Z[0m [33m WARN[0m [controlled]: could not listen udp 169.254.159.223: io error: 在其上下文中，该请求的地址无效。 (os error 10049)
+[2m2026-01-24T04:09:04.484947Z[0m [32m INFO[0m PeerConnection 状态 [viewer_0]: Connecting
+[2m2026-01-24T04:09:04.485086Z[0m [33m WARN[0m [controlled]: could not listen udp 169.254.201.212: io error: 在其上下文中，该请求的地址无效。 (os error 10049)
+[2m2026-01-24T04:09:04.485432Z[0m [33m WARN[0m [controlled]: could not listen udp 169.254.237.144: io error: 在其上下文中，该请求的地址无效。 (os error 10049)
+[2m2026-01-24T04:09:04.485633Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:04.485643Z[0m [33m WARN[0m [controlled]: could not listen udp 169.254.254.168: io error: 在其上下文中，该请求的地址无效。 (os error 10049)
+[2m2026-01-24T04:09:04.693329Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:04.911938Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:05.128164Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:05.345390Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:05.562223Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:05.714673Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:05.716080Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:05.921732Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:06.140176Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:06.358550Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:06.575208Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:06.778341Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:06.982514Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:07.199490Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:07.418096Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:07.635604Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:07.840344Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:08.056080Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:08.274953Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:08.495264Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:08.713112Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:08.931466Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:09.147709Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:09.366712Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:09.584197Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:09.789509Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:09.994363Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:10.212510Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:10.431117Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:10.648632Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:10.867548Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:11.086772Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:11.305403Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:11.523178Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:11.739722Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:11.958515Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:12.161966Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:12.380985Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:12.585502Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:12.803691Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:13.019035Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:13.235394Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:13.453901Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:13.670534Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:13.886975Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:14.104112Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:14.321818Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:14.540980Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:14.759272Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:14.978465Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:15.194435Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:15.411944Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:15.629048Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:15.844868Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:16.061814Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:16.279224Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:16.496875Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:16.715577Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:16.934011Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:17.152365Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:17.355712Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:17.572622Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:17.792055Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:18.009681Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:18.214202Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:18.432003Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:18.648623Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:18.852602Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:19.069312Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:19.287293Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:19.504691Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:19.724646Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:19.940410Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:20.159817Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:20.378892Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:20.596646Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:20.814158Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:21.032497Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:21.251092Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:21.469124Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:21.674528Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:21.891647Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:22.107591Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:22.325841Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:22.543305Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:22.759460Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:22.976356Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:23.194973Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:23.411471Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:23.629377Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:23.843983Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:24.063103Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:24.280212Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:24.497262Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:24.717752Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:24.934955Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:25.153225Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:25.372093Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:25.591343Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:25.807798Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:26.025435Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:26.244161Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:26.464029Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:26.683393Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:26.901332Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:27.121035Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:27.340745Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:27.559033Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:27.776580Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:27.979611Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:28.198239Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:28.416968Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:28.635414Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:28.854674Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:29.071476Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:29.275747Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:29.492159Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:29.710983Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:29.929412Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:30.148017Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:30.366734Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:30.585068Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:30.789344Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:31.008859Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:31.227917Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:31.446241Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:31.662218Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:31.881192Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:32.083834Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:32.303336Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:32.519470Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:32.736511Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:32.941812Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:33.159023Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:33.375309Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:33.577740Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:33.794522Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:34.011672Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:34.227077Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:34.443488Z[0m [33m WARN[0m [controlled]: pingAllCandidates called with no candidate pairs. Connection is not possible yet.
+[2m2026-01-24T04:09:34.660733Z[0m [32m INFO[0m [controlled]: Setting new connection state: Failed
+[2m2026-01-24T04:09:34.663928Z[0m [32m INFO[0m ICE connection state changed: failed
+[2m2026-01-24T04:09:34.664432Z[0m [32m INFO[0m peer connection state changed: failed
+[2m2026-01-24T04:09:34.664907Z[0m [32m INFO[0m PeerConnection 状态 [viewer_0]: Failed
